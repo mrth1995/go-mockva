@@ -1,4 +1,4 @@
-package model
+package account
 
 import (
 	"time"
@@ -14,7 +14,7 @@ type Account struct {
 	AllowNegativeBalance bool       `json:"allowNegativeBalance" gorm:"not null"`
 }
 
-type AccountRegister struct {
+type Register struct {
 	ID                   string `json:"id"`
 	Name                 string `json:"name"`
 	Address              string `json:"address"`
@@ -23,7 +23,7 @@ type AccountRegister struct {
 	AllowNegativeBalance bool   `json:"allowNegativeBalance"`
 }
 
-type AccountEdit struct {
+type Edit struct {
 	ID                   string `json:"id"`
 	Name                 string `json:"name"`
 	Address              string `json:"address"`

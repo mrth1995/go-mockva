@@ -1,8 +1,8 @@
 package server
 
 import (
-	accountModel "github.com/mrth1995/go-mockva/pkg/account/model"
-	accountTrxModel "github.com/mrth1995/go-mockva/pkg/accounttransaction/model"
+	"github.com/mrth1995/go-mockva/pkg/account"
+	"github.com/mrth1995/go-mockva/pkg/accounttransaction"
 )
 
 type Entity struct {
@@ -11,7 +11,7 @@ type Entity struct {
 
 func (s *Server) RegisterEntities() []Entity {
 	return []Entity{
-		{Entity: accountModel.Account{}},
-		{Entity: accountTrxModel.AccountTransaction{}},
+		{Entity: account.Account{}},
+		{Entity: accounttransaction.AccountTransaction{}},
 	}
 }

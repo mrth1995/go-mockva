@@ -2,14 +2,14 @@ package server
 
 import (
 	"github.com/emicklei/go-restful/v3"
-	"github.com/mrth1995/go-mockva/pkg/account/route"
-	trxRoute "github.com/mrth1995/go-mockva/pkg/accounttransaction/route"
+	"github.com/mrth1995/go-mockva/pkg/account"
+	"github.com/mrth1995/go-mockva/pkg/accounttransaction"
 )
 
 func (s *Server) initializeRoutes() {
 	s.addHealthCheck()
-	s.addRoute(&route.AccountRoute{})
-	s.addRoute(&trxRoute.AccountTransactionRoute{})
+	s.addRoute(&account.Route{})
+	s.addRoute(&accounttransaction.Route{})
 }
 
 func (s *Server) addHealthCheck() {

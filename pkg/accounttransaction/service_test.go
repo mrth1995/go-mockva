@@ -1,18 +1,15 @@
-package service
+package accounttransaction
 
 import (
 	"testing"
 	"time"
 
+	"github.com/mrth1995/go-mockva/pkg/account"
+
 	"github.com/mrth1995/go-mockva/pkg/errors"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/stretchr/testify/require"
-
-	accountMock "github.com/mrth1995/go-mockva/pkg/account/mock"
-	accountModel "github.com/mrth1995/go-mockva/pkg/account/model"
-	accountTrxMock "github.com/mrth1995/go-mockva/pkg/accounttransaction/mock"
-	"github.com/mrth1995/go-mockva/pkg/accounttransaction/model"
 )
 
 func TestAccountTransactionService_Transfer(t *testing.T) {
@@ -20,26 +17,26 @@ func TestAccountTransactionService_Transfer(t *testing.T) {
 	initialSrcBalance := accountSrc.Balance
 	accountDst := getAccountDst()
 	initialDstBalance := accountDst.Balance
-	accountFundTransfer := &model.AccountFundTransfer{
+	accountFundTransfer := &AccountFundTransfer{
 		AccountDstId: accountDst.ID,
 		AccountSrcId: accountSrc.ID,
 		Amount:       5000,
 	}
-	accountRepository := &accountMock.MockAccountRepository{}
-	accountTrxRepository := &accountTrxMock.MockAccountTransactionRepository{}
+	accountRepository := &account.MockRepository{}
+	accountTrxRepository := &MockRepository{}
 
 	accountRepository.On("FindById", accountSrc.ID).Return(accountSrc, nil)
 	accountRepository.On("FindById", accountDst.ID).Return(accountDst, nil)
-	var updatedAccountSrc *accountModel.Account
-	var updatedAccountDst *accountModel.Account
+	var updatedAccountSrc *account.Account
+	var updatedAccountDst *account.Account
 	accountRepository.On("Update", accountSrc).Return(nil, nil).Run(func(args mock.Arguments) {
-		updatedAccountSrc = args.Get(0).(*accountModel.Account)
+		updatedAccountSrc = args.Get(0).(*account.Account)
 	})
 	accountRepository.On("Update", accountDst).Return(nil, nil).Run(func(args mock.Arguments) {
-		updatedAccountDst = args.Get(0).(*accountModel.Account)
+		updatedAccountDst = args.Get(0).(*account.Account)
 	})
 	accountTrxRepository.On("Save", mock.Anything).Return(nil)
-	accountTrxService := &AccountTransactionServiceImpl{
+	accountTrxService := &serviceImpl{
 		AccountRepository:    accountRepository,
 		AccountTrxRepository: accountTrxRepository,
 	}
@@ -61,24 +58,24 @@ func TestAccountTransactionService_TransferNegativeBalance(t *testing.T) {
 	accountDst := getAccountDst()
 	initialDstBalance := accountDst.Balance
 
-	accountRepository := &accountMock.MockAccountRepository{}
+	accountRepository := &account.MockRepository{}
 	accountRepository.On("FindById", accountSrc.ID).Return(accountSrc, nil)
 	accountRepository.On("FindById", accountDst.ID).Return(accountDst, nil)
-	var updatedAccountSrc *accountModel.Account
-	var updatedAccountDst *accountModel.Account
+	var updatedAccountSrc *account.Account
+	var updatedAccountDst *account.Account
 	accountRepository.On("Update", accountSrc).Return(nil, nil).Run(func(args mock.Arguments) {
-		updatedAccountSrc = args.Get(0).(*accountModel.Account)
+		updatedAccountSrc = args.Get(0).(*account.Account)
 	})
 	accountRepository.On("Update", accountDst).Return(nil, nil).Run(func(args mock.Arguments) {
-		updatedAccountDst = args.Get(0).(*accountModel.Account)
+		updatedAccountDst = args.Get(0).(*account.Account)
 	})
-	accountTrxRepository := &accountTrxMock.MockAccountTransactionRepository{}
+	accountTrxRepository := &MockRepository{}
 	accountTrxRepository.On("Save", mock.Anything).Return(nil)
-	accountTrxService := &AccountTransactionServiceImpl{
+	accountTrxService := &serviceImpl{
 		AccountRepository:    accountRepository,
 		AccountTrxRepository: accountTrxRepository,
 	}
-	accountFundTransfer := &model.AccountFundTransfer{
+	accountFundTransfer := &AccountFundTransfer{
 		AccountDstId: accountDst.ID,
 		AccountSrcId: accountSrc.ID,
 		Amount:       5000,
@@ -97,13 +94,13 @@ func TestAccountTransactionService_TransferNegativeBalance(t *testing.T) {
 func TestAccountTransactionService_TransferWithSameAccount(t *testing.T) {
 	accountSrc := getAccountSrc()
 	accountDst := getAccountSrc()
-	accountRepository := &accountMock.MockAccountRepository{}
-	accountTrxRepository := &accountTrxMock.MockAccountTransactionRepository{}
-	accountTrxService := &AccountTransactionServiceImpl{
+	accountRepository := &account.MockRepository{}
+	accountTrxRepository := &MockRepository{}
+	accountTrxService := &serviceImpl{
 		AccountRepository:    accountRepository,
 		AccountTrxRepository: accountTrxRepository,
 	}
-	accountFundTransfer := &model.AccountFundTransfer{
+	accountFundTransfer := &AccountFundTransfer{
 		AccountDstId: accountDst.ID,
 		AccountSrcId: accountSrc.ID,
 		Amount:       5000,
@@ -116,13 +113,13 @@ func TestAccountTransactionService_TransferWithSameAccount(t *testing.T) {
 
 func TestAccountTransactionService_TransferWithNilAccountSrc(t *testing.T) {
 	accountDst := getAccountDst()
-	accountRepository := &accountMock.MockAccountRepository{}
-	accountTrxRepository := &accountTrxMock.MockAccountTransactionRepository{}
-	accountTrxService := &AccountTransactionServiceImpl{
+	accountRepository := &account.MockRepository{}
+	accountTrxRepository := &MockRepository{}
+	accountTrxService := &serviceImpl{
 		AccountRepository:    accountRepository,
 		AccountTrxRepository: accountTrxRepository,
 	}
-	accountFundTransfer := &model.AccountFundTransfer{
+	accountFundTransfer := &AccountFundTransfer{
 		AccountDstId: accountDst.ID,
 		AccountSrcId: "",
 		Amount:       5000,
@@ -135,13 +132,13 @@ func TestAccountTransactionService_TransferWithNilAccountSrc(t *testing.T) {
 
 func TestAccountTransactionService_TransferWithNilAccountDst(t *testing.T) {
 	accountSrc := getAccountSrc()
-	accountRepository := &accountMock.MockAccountRepository{}
-	accountTrxRepository := &accountTrxMock.MockAccountTransactionRepository{}
-	accountTrxService := &AccountTransactionServiceImpl{
+	accountRepository := &account.MockRepository{}
+	accountTrxRepository := &MockRepository{}
+	accountTrxService := &serviceImpl{
 		AccountRepository:    accountRepository,
 		AccountTrxRepository: accountTrxRepository,
 	}
-	accountFundTransfer := &model.AccountFundTransfer{
+	accountFundTransfer := &AccountFundTransfer{
 		AccountDstId: "",
 		AccountSrcId: accountSrc.ID,
 		Amount:       5000,
@@ -155,13 +152,13 @@ func TestAccountTransactionService_TransferWithNilAccountDst(t *testing.T) {
 func TestAccountTransactionService_TransferWithNegativeBalance(t *testing.T) {
 	accountSrc := getAccountSrc()
 	accountDst := getAccountSrc()
-	accountRepository := &accountMock.MockAccountRepository{}
-	accountTrxRepository := &accountTrxMock.MockAccountTransactionRepository{}
-	accountTrxService := &AccountTransactionServiceImpl{
+	accountRepository := &account.MockRepository{}
+	accountTrxRepository := &MockRepository{}
+	accountTrxService := &serviceImpl{
 		AccountRepository:    accountRepository,
 		AccountTrxRepository: accountTrxRepository,
 	}
-	accountFundTransfer := &model.AccountFundTransfer{
+	accountFundTransfer := &AccountFundTransfer{
 		AccountDstId: accountDst.ID,
 		AccountSrcId: accountSrc.ID,
 		Amount:       -5000,
@@ -176,12 +173,12 @@ func TestAccountTransactionServiceImpl_Transfer_InsufficientFunds(t *testing.T) 
 	accountSrc := getAccountSrc()
 	accountDst := getAccountDst()
 	amount := float64(1000_000)
-	accountRepo := &accountMock.MockAccountRepository{}
+	accountRepo := &account.MockRepository{}
 	accountRepo.On("FindById", accountSrc.ID).Return(accountSrc, nil)
 	accountRepo.On("FindById", accountDst.ID).Return(accountDst, nil)
-	accountTrxRepo := &accountTrxMock.MockAccountTransactionRepository{}
-	service := &AccountTransactionServiceImpl{accountRepo, accountTrxRepo}
-	transaction, err := service.Transfer(&model.AccountFundTransfer{
+	accountTrxRepo := &MockRepository{}
+	service := &serviceImpl{accountRepo, accountTrxRepo}
+	transaction, err := service.Transfer(&AccountFundTransfer{
 		AccountDstId: accountDst.ID,
 		AccountSrcId: accountSrc.ID,
 		Amount:       amount,
@@ -195,12 +192,12 @@ func TestAccountTransactionServiceImpl_Transfer_AccountSrcNotFound(t *testing.T)
 	accountSrc := getAccountSrc()
 	accountDst := getAccountDst()
 	amount := float64(1000_000)
-	accountRepo := &accountMock.MockAccountRepository{}
+	accountRepo := &account.MockRepository{}
 	accountRepo.On("FindById", accountSrc.ID).Return(nil, errors.NewAccountNotFound(accountSrc.ID))
 	accountRepo.On("FindById", accountDst.ID).Return(accountDst)
-	accountTrxRepo := &accountTrxMock.MockAccountTransactionRepository{}
-	service := &AccountTransactionServiceImpl{accountRepo, accountTrxRepo}
-	transaction, err := service.Transfer(&model.AccountFundTransfer{
+	accountTrxRepo := &MockRepository{}
+	service := &serviceImpl{accountRepo, accountTrxRepo}
+	transaction, err := service.Transfer(&AccountFundTransfer{
 		AccountDstId: accountDst.ID,
 		AccountSrcId: accountSrc.ID,
 		Amount:       amount,
@@ -214,12 +211,12 @@ func TestAccountTransactionServiceImpl_Transfer_AccountDstNotFound(t *testing.T)
 	accountSrc := getAccountSrc()
 	accountDst := getAccountDst()
 	amount := float64(1000_000)
-	accountRepo := &accountMock.MockAccountRepository{}
+	accountRepo := &account.MockRepository{}
 	accountRepo.On("FindById", accountSrc.ID).Return(accountSrc, nil)
 	accountRepo.On("FindById", accountDst.ID).Return(nil, errors.NewAccountNotFound(accountDst.ID))
-	accountTrxRepo := &accountTrxMock.MockAccountTransactionRepository{}
-	service := &AccountTransactionServiceImpl{accountRepo, accountTrxRepo}
-	transaction, err := service.Transfer(&model.AccountFundTransfer{
+	accountTrxRepo := &MockRepository{}
+	service := &serviceImpl{accountRepo, accountTrxRepo}
+	transaction, err := service.Transfer(&AccountFundTransfer{
 		AccountDstId: accountDst.ID,
 		AccountSrcId: accountSrc.ID,
 		Amount:       amount,
@@ -229,9 +226,9 @@ func TestAccountTransactionServiceImpl_Transfer_AccountDstNotFound(t *testing.T)
 	assertions.NotNilf(err, "Account dst not found")
 }
 
-func getAccountSrc() *accountModel.Account {
+func getAccountSrc() *account.Account {
 	addr := "Jl sadarmanah"
-	return &accountModel.Account{
+	return &account.Account{
 		ID:                   "001",
 		Name:                 "Account 001",
 		Address:              addr,
@@ -242,9 +239,9 @@ func getAccountSrc() *accountModel.Account {
 	}
 }
 
-func getAccountDst() *accountModel.Account {
+func getAccountDst() *account.Account {
 	addr := "Jl sadarmanah"
-	return &accountModel.Account{
+	return &account.Account{
 		ID:                   "002",
 		Name:                 "Account 002",
 		Address:              addr,
@@ -255,9 +252,9 @@ func getAccountDst() *accountModel.Account {
 	}
 }
 
-func getAccountSrcWithAllowNegativeBalance() *accountModel.Account {
+func getAccountSrcWithAllowNegativeBalance() *account.Account {
 	addr := "Jl sadarmanah"
-	return &accountModel.Account{
+	return &account.Account{
 		ID:                   "001",
 		Name:                 "Account 001",
 		Address:              addr,

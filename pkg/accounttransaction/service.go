@@ -1,32 +1,34 @@
-package service
+package accounttransaction
 
 import (
-	"errors"
 	"strconv"
 	"time"
 
-	accountRepository "github.com/mrth1995/go-mockva/pkg/account/repository"
-	"github.com/mrth1995/go-mockva/pkg/accounttransaction/model"
-	"github.com/mrth1995/go-mockva/pkg/accounttransaction/repository"
+	"github.com/mrth1995/go-mockva/pkg/account"
+	"github.com/mrth1995/go-mockva/pkg/errors"
 )
 
-type AccountTransactionServiceImpl struct {
-	AccountRepository    accountRepository.AccountRepository
-	AccountTrxRepository repository.AccountTransactionRepository
+type Service interface {
+	Transfer(accountFundTransfer *AccountFundTransfer) (*AccountTransaction, error)
 }
 
-func (s *AccountTransactionServiceImpl) Transfer(accountFundTransfer *model.AccountFundTransfer) (*model.AccountTransaction, error) {
+type serviceImpl struct {
+	AccountRepository    account.Repository
+	AccountTrxRepository Repository
+}
+
+func (s *serviceImpl) Transfer(accountFundTransfer *AccountFundTransfer) (*AccountTransaction, error) {
 	if accountFundTransfer.AccountSrcId == "" {
-		return nil, errors.New("account src cannot be empty")
+		return nil, errors.NewAccountNotFound("account src cannot be empty")
 	}
 	if accountFundTransfer.AccountDstId == "" {
-		return nil, errors.New("account dst cannot be empty")
+		return nil, errors.NewAccountNotFound("account dst cannot be empty")
 	}
 	if accountFundTransfer.Amount <= 0 {
-		return nil, errors.New("invalid amount")
+		return nil, errors.NewInvalidAmount()
 	}
 	if accountFundTransfer.AccountDstId == accountFundTransfer.AccountSrcId {
-		return nil, errors.New("cannot transfer with same account")
+		return nil, errors.NewInvalidAccount()
 	}
 
 	accountSrc, err := s.AccountRepository.FindById(accountFundTransfer.AccountSrcId)
@@ -38,10 +40,10 @@ func (s *AccountTransactionServiceImpl) Transfer(accountFundTransfer *model.Acco
 		return nil, err
 	}
 	if accountSrc.Balance-accountFundTransfer.Amount < 0 && !accountSrc.AllowNegativeBalance {
-		return nil, errors.New("insufficient amount")
+		return nil, errors.NewInsufficientAmount()
 	}
 	trxId := accountSrc.ID + ":" + accountDst.ID + ":" + strconv.Itoa(time.Now().Nanosecond())
-	accountTrx := &model.AccountTransaction{
+	accountTrx := &AccountTransaction{
 		ID:                   trxId,
 		TransactionTimestamp: time.Now(),
 		Amount:               accountFundTransfer.Amount,

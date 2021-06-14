@@ -1,23 +1,29 @@
-package service
+package account
 
 import (
-	"fmt"
 	"time"
 
+	"github.com/mrth1995/go-mockva/pkg/errors"
 	"github.com/sirupsen/logrus"
-
-	"github.com/mrth1995/go-mockva/pkg/account/model"
-	"github.com/mrth1995/go-mockva/pkg/account/repository"
 )
 
-type AccountServiceImpl struct {
-	repository repository.AccountRepository
+type Service interface {
+	Register(register *Register) (*Account, error)
+	Edit(edit *Edit) (*Account, error)
 }
 
-func (s *AccountServiceImpl) Register(register *model.AccountRegister) (*model.Account, error) {
+type serviceImpl struct {
+	repository Repository
+}
+
+func NewService(accountRepository Repository) Service {
+	return &serviceImpl{repository: accountRepository}
+}
+
+func (s *serviceImpl) Register(register *Register) (*Account, error) {
 	existingAccount, notFound := s.repository.FindById(register.ID)
 	if existingAccount != nil && notFound == nil {
-		return nil, fmt.Errorf("account %v already exist", register.ID)
+		return nil, errors.NewAccountAlreadyExist(register.ID)
 	}
 	var birthDate *time.Time = nil
 	if register.BirthDate != "" {
@@ -29,7 +35,7 @@ func (s *AccountServiceImpl) Register(register *model.AccountRegister) (*model.A
 		}
 	}
 
-	newAccount := &model.Account{
+	newAccount := &Account{
 		ID:                   register.ID,
 		Name:                 register.Name,
 		Address:              register.Address,
@@ -44,7 +50,7 @@ func (s *AccountServiceImpl) Register(register *model.AccountRegister) (*model.A
 	return newAccount, nil
 }
 
-func (s *AccountServiceImpl) Edit(edit *model.AccountEdit) (*model.Account, error) {
+func (s *serviceImpl) Edit(edit *Edit) (*Account, error) {
 	existingAccount, err := s.repository.FindById(edit.ID)
 	if err != nil {
 		return nil, err

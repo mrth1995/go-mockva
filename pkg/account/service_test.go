@@ -1,4 +1,4 @@
-package service
+package account
 
 import (
 	"fmt"
@@ -9,15 +9,12 @@ import (
 
 	"github.com/mrth1995/go-mockva/pkg/errors"
 
-	accountMock "github.com/mrth1995/go-mockva/pkg/account/mock"
-
-	"github.com/mrth1995/go-mockva/pkg/account/model"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAccountServiceImpl_Register(t *testing.T) {
 	birthDate := "1996-03-11"
-	accountRegister := &model.AccountRegister{
+	accountRegister := &Register{
 		ID:                   "100",
 		Name:                 "Siska",
 		Address:              "Jl sadarmanah",
@@ -25,14 +22,14 @@ func TestAccountServiceImpl_Register(t *testing.T) {
 		Gender:               false,
 		AllowNegativeBalance: false,
 	}
-	repository := new(accountMock.MockAccountRepository)
+	repository := new(MockRepository)
 	repository.On("FindById", "100").Return(nil, fmt.Errorf("account %v not found", accountRegister.ID))
 	//birtDateTime, _ := time.Parse("2006-01-02", birthDate)
-	var newAccount *model.Account
+	var newAccount *Account
 	repository.On("Save", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		newAccount = args.Get(0).(*model.Account)
+		newAccount = args.Get(0).(*Account)
 	})
-	accountService := &AccountServiceImpl{repository: repository}
+	accountService := NewService(repository)
 	account, accountAlreadyExist := accountService.Register(accountRegister)
 
 	assertions := require.New(t)
@@ -43,7 +40,7 @@ func TestAccountServiceImpl_Register(t *testing.T) {
 
 func TestAccountServiceImpl_Register_AccountAlreadyExist(t *testing.T) {
 	dateString := "1996-03-11"
-	accountRegister := &model.AccountRegister{
+	accountRegister := &Register{
 		ID:                   "111",
 		Name:                 "Ridwan",
 		Address:              "Jl sadarmanah",
@@ -52,12 +49,10 @@ func TestAccountServiceImpl_Register_AccountAlreadyExist(t *testing.T) {
 		AllowNegativeBalance: false,
 	}
 
-	repository := &accountMock.MockAccountRepository{}
-	repository.On("FindById", accountRegister.ID).Return(&model.Account{}, nil)
+	repository := &MockRepository{}
+	repository.On("FindById", accountRegister.ID).Return(&Account{}, nil)
 
-	accountService := &AccountServiceImpl{
-		repository: repository,
-	}
+	accountService := NewService(repository)
 
 	newAccount, alreadyExist := accountService.Register(accountRegister)
 	assertions := require.New(t)
@@ -70,7 +65,7 @@ func TestAccountServiceImpl_Edit(t *testing.T) {
 	editedBirthdate, _ := time.Parse("2006-01-02", edit.BirthDate)
 	existingBirthDate, _ := time.Parse("2006-01-02", "1995-08-25")
 	addr := "Jl menteng atas"
-	existingAccount := &model.Account{
+	existingAccount := &Account{
 		ID:                   "001",
 		Name:                 "Ridwan Taufik",
 		Address:              addr,
@@ -80,13 +75,13 @@ func TestAccountServiceImpl_Edit(t *testing.T) {
 		AllowNegativeBalance: true,
 	}
 
-	repository := &accountMock.MockAccountRepository{}
+	repository := &MockRepository{}
 	repository.On("FindById", edit.ID).Return(existingAccount, nil)
-	var updatedAccount *model.Account
+	var updatedAccount *Account
 	repository.On("Update", mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
-		updatedAccount = args.Get(0).(*model.Account)
+		updatedAccount = args.Get(0).(*Account)
 	})
-	service := &AccountServiceImpl{repository: repository}
+	service := NewService(repository)
 	account, err := service.Edit(edit)
 	assertions := require.New(t)
 	assertions.Nil(err)
@@ -100,19 +95,17 @@ func TestAccountServiceImpl_Edit(t *testing.T) {
 
 func TestAccountServiceImpl_Edit_AccountNotFound(t *testing.T) {
 	edit := getEditAccount()
-	repository := &accountMock.MockAccountRepository{}
+	repository := &MockRepository{}
 	repository.On("FindById", edit.ID).Return(nil, errors.NewAccountNotFound(edit.ID))
-	service := &AccountServiceImpl{
-		repository: repository,
-	}
+	service := NewService(repository)
 	account, err := service.Edit(edit)
 	assertions := require.New(t)
 	assertions.Nil(account)
 	assertions.NotNil(err, "Account not found")
 }
 
-func getEditAccount() *model.AccountEdit {
-	return &model.AccountEdit{
+func getEditAccount() *Edit {
+	return &Edit{
 		ID:                   "001",
 		Name:                 "Ridwan",
 		Address:              "JL sadarmanah",
