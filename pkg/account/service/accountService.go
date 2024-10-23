@@ -7,7 +7,7 @@ import (
 
 type AccountService interface {
 	Register(register *model.AccountRegister) (*model.Account, error)
-	Edit(edit *model.AccountEdit) (*model.Account, error)
+	Edit(id string, edit *model.AccountEdit) (*model.Account, error)
 }
 
 func NewAccountService(accountRepository repository.AccountRepository) AccountService {

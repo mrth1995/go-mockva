@@ -1,0 +1,21 @@
+version: '3'
+services:
+  postgres:
+    image: postgres:15
+    container_name: mockva-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=mockvaadmin
+      - POSTGRES_PASSWORD=Password1
+    command: ["postgres", "-c", "log_statement=all"]
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: mockva-pgadmin4
+    restart: always
+    ports:
+      - "8888:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: Password1

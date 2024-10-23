@@ -8,11 +8,16 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/mrth1995/go-mockva/pkg/errors"
+	"github.com/mrth1995/go-mockva/pkg/utils"
 
 	accountMock "github.com/mrth1995/go-mockva/pkg/account/mock"
 
 	"github.com/mrth1995/go-mockva/pkg/account/model"
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	accountID = "12345"
 )
 
 func TestAccountServiceImpl_Register(t *testing.T) {
@@ -67,45 +72,42 @@ func TestAccountServiceImpl_Register_AccountAlreadyExist(t *testing.T) {
 
 func TestAccountServiceImpl_Edit(t *testing.T) {
 	edit := getEditAccount()
-	editedBirthdate, _ := time.Parse("2006-01-02", edit.BirthDate)
-	existingBirthDate, _ := time.Parse("2006-01-02", "1995-08-25")
+	editedBirthdate, _ := time.Parse(time.DateOnly, *edit.BirthDate)
+	existingBirthDate, _ := time.Parse(time.DateOnly, "1995-08-25")
 	addr := "Jl menteng atas"
 	existingAccount := &model.Account{
-		ID:                   "001",
-		Name:                 "Ridwan Taufik",
-		Address:              addr,
-		BirthDate:            &existingBirthDate,
-		Gender:               false,
-		Balance:              0,
-		AllowNegativeBalance: true,
+		ID:        accountID,
+		Name:      "Ridwan Taufik",
+		Address:   addr,
+		BirthDate: existingBirthDate,
+		Gender:    false,
 	}
 
 	repository := &accountMock.MockAccountRepository{}
-	repository.On("FindById", edit.ID).Return(existingAccount, nil)
+	repository.On("FindById", accountID).Return(existingAccount, nil)
 	var updatedAccount *model.Account
 	repository.On("Update", mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
 		updatedAccount = args.Get(0).(*model.Account)
 	})
 	service := &AccountServiceImpl{repository: repository}
-	account, err := service.Edit(edit)
+	account, err := service.Edit(accountID, edit)
 	assertions := require.New(t)
 	assertions.Nil(err)
 	assertions.NotNilf(account, "Updated account not nil")
 	assertions.Equal(edit.Name, updatedAccount.Name)
 	assertions.Equal(edit.Address, updatedAccount.Address)
 	assertions.Equal(edit.Gender, updatedAccount.Gender)
-	assertions.Equal(edit.AllowNegativeBalance, updatedAccount.AllowNegativeBalance)
 	assertions.Equal(editedBirthdate.String(), updatedAccount.BirthDate.String())
 }
 
 func TestAccountServiceImpl_Edit_AccountNotFound(t *testing.T) {
 	edit := getEditAccount()
 	repository := &accountMock.MockAccountRepository{}
-	repository.On("FindById", edit.ID).Return(nil, errors.NewAccountNotFound(edit.ID))
+	repository.On("FindById", accountID).Return(nil, errors.NewAccountNotFound(accountID))
 	service := &AccountServiceImpl{
 		repository: repository,
 	}
-	account, err := service.Edit(edit)
+	account, err := service.Edit(accountID, edit)
 	assertions := require.New(t)
 	assertions.Nil(account)
 	assertions.NotNil(err, "Account not found")
@@ -113,11 +115,9 @@ func TestAccountServiceImpl_Edit_AccountNotFound(t *testing.T) {
 
 func getEditAccount() *model.AccountEdit {
 	return &model.AccountEdit{
-		ID:                   "001",
-		Name:                 "Ridwan",
-		Address:              "JL sadarmanah",
-		BirthDate:            "1995-03-01",
-		Gender:               true,
-		AllowNegativeBalance: false,
+		Name:      utils.ToStringPointer("Ridwan"),
+		Address:   utils.ToStringPointer("JL sadarmanah"),
+		BirthDate: utils.ToStringPointer("1995-03-01"),
+		Gender:    utils.ToBooleanPointer(true),
 	}
 }

@@ -1,28 +1,21 @@
 package server
 
 import (
+	"context"
 	"fmt"
-	"net"
 	"net/http"
 
 	"github.com/emicklei/go-restful/v3"
+	"github.com/mrth1995/go-mockva/pkg/config"
+	"github.com/mrth1995/go-mockva/pkg/migration"
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-type AppConfig struct {
-	ContextPath string
-	Port        int64
-}
-
-type DbConfig struct {
-	Host         string
-	Port         int
-	Username     string
-	Password     string
-	DatabaseName string
-}
+const (
+	contextPath = "/mockva"
+)
 
 type Endpoint interface {
 	RegisterEndpoint(ws *restful.WebService, db *gorm.DB)
@@ -30,61 +23,56 @@ type Endpoint interface {
 
 type Server struct {
 	webService   *restful.WebService
-	config       *AppConfig
-	listener     net.Listener
+	cfg          *config.Config
+	httpServer   *http.Server
 	dbConnection *gorm.DB
 }
 
-func (s *Server) Initialize(appConfig *AppConfig, dbConfig *DbConfig) {
-	s.config = appConfig
-	s.initializeDb(dbConfig)
+func (s *Server) Initialize(cfg *config.Config) {
+	s.cfg = cfg
+	s.initializeDb()
+	s.migrateDBSchema()
 	s.webService = new(restful.WebService)
-	s.webService.Path(appConfig.ContextPath)
+	s.webService.Path(contextPath)
 	s.initializeRoutes()
 	restful.Add(s.webService)
 }
 
-func (s *Server) Start() {
-	var handler http.Handler = restful.DefaultContainer
-	var err error
-	s.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", s.config.Port))
-	if err != nil {
-		return
+func (s *Server) Start() error {
+	s.httpServer = &http.Server{
+		Handler: restful.DefaultContainer,
+		Addr:    fmt.Sprintf("0.0.0.0:%d", s.cfg.Port),
 	}
-	logrus.Infof("Server is listening at :%v", s.config.Port)
-	err = http.Serve(s.listener, handler)
-	if err != nil {
-		logrus.Error(err)
-		return
-	}
+	logrus.Infof("Server is listening at :%v", s.cfg.Port)
+	return s.httpServer.ListenAndServe()
 }
 
-func (s *Server) Stop() {
+func (s *Server) Stop(ctx context.Context) error {
 	logrus.Infof("Stopping server")
-	err := s.listener.Close()
-	if err != nil {
-		logrus.Errorf("Cannot stop server %v", err)
-		return
-	}
+	return s.httpServer.Shutdown(ctx)
 }
 
 func (s *Server) addRoute(endpoint Endpoint) {
 	endpoint.RegisterEndpoint(s.webService, s.dbConnection)
 }
 
-func (s *Server) initializeDb(config *DbConfig) {
+func (s *Server) initializeDb() {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d",
-		config.Host, config.Username, config.Password, config.DatabaseName, config.Port)
+		s.cfg.PostgresHost, s.cfg.PostgresUsername, s.cfg.PostgresPassword, s.cfg.DBName, s.cfg.PostgresPort)
 	connection, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		logrus.Error(err)
-		panic(err)
+		logrus.Fatal(err)
 	}
 	s.dbConnection = connection
-	for _, entity := range s.RegisterEntities() {
-		err := s.dbConnection.AutoMigrate(entity.Entity)
-		if err != nil {
-			logrus.Error(err)
-		}
+}
+
+func (s *Server) migrateDBSchema() {
+	DB, _ := s.dbConnection.DB()
+	migration, err := migration.NewMigration(DB, s.cfg.DBName, s.cfg.SQLFilePath+"/postgresql")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	if err = migration.Up(); err != nil {
+		logrus.Fatal(err)
 	}
 }

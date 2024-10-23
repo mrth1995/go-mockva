@@ -44,6 +44,8 @@ func (h *AccountHandler) CreateAccount(request *restful.Request, response *restf
 }
 
 func (h *AccountHandler) EditAccount(request *restful.Request, response *restful.Response) {
+	accountID := request.PathParameter("accountId")
+
 	var accountEdit model.AccountEdit
 	err := request.ReadEntity(accountEdit)
 	if err != nil {
@@ -51,7 +53,7 @@ func (h *AccountHandler) EditAccount(request *restful.Request, response *restful
 		responseWriter.WriteBadRequest(err, response)
 		return
 	}
-	account, err := h.AccountService.Edit(&accountEdit)
+	account, err := h.AccountService.Edit(accountID, &accountEdit)
 	if err != nil {
 		logrus.Error(err)
 		responseWriter.WriteBadRequest(err, response)
