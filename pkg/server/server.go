@@ -35,7 +35,6 @@ func (s *Server) Initialize(cfg *config.Config) {
 	s.webService = new(restful.WebService)
 	s.webService.Path(contextPath)
 	s.initializeRoutes()
-	restful.Add(s.webService)
 }
 
 func (s *Server) Start() error {

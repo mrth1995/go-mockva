@@ -19,3 +19,4 @@ Features:
 - Create database with name `mockva`
 - Create file `.env`, please refer to `.env.example`
 - Run project
+- Apidocs can be accessed on `/mockva/apidocs`

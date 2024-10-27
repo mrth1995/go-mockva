@@ -17,6 +17,7 @@ type Config struct {
 	PostgresPassword string `env:"POSTGRES_PASSWORD" envDocs:"PostgreSQL password"`
 	DBName           string `env:"DB_NAME" envDocs:"Database name" envDefault:"mockva"`
 	SQLFilePath      string `env:"SQL_FILE_PATH" envDocs:"SQL file path for schema migration" envDefault:"/srv/migration"`
+	SwaggerFilePath  string `env:"SWAGGER_FILE_PATH"`
 }
 
 func (envVar Config) HelpDocs() []string {
