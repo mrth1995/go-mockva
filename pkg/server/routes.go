@@ -6,14 +6,27 @@ import (
 	restfulspec "github.com/emicklei/go-restful-openapi/v2"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/go-openapi/spec"
-	"github.com/mrth1995/go-mockva/pkg/account/route"
-	trxRoute "github.com/mrth1995/go-mockva/pkg/accounttransaction/route"
+	"github.com/mrth1995/go-mockva/pkg/controller"
+	"github.com/mrth1995/go-mockva/pkg/repository/postgresql"
+	"github.com/mrth1995/go-mockva/pkg/service"
 )
 
 func (s *Server) initializeRoutes() {
-	s.addRoute(&route.AccountRoute{})
-	s.addRoute(&trxRoute.AccountTransactionRoute{})
-	restful.Add(s.webService)
+	ws := new(restful.WebService)
+	ws.Path(contextPath)
+
+	accountRepository := postgresql.NewAccountRepository(s.dbConnection)
+	accountTrxRepository := postgresql.NewAccountTrxRepository(s.dbConnection)
+
+	accountService := service.NewAccountService(accountRepository)
+	accountTrxService := service.NewAccountTrxService(accountService, accountTrxRepository)
+
+	accountController := controller.NewAccountController(accountService)
+	accountTrxController := controller.NewAccountTransactionController(accountTrxService)
+
+	s.addRoute(ws, accountController)
+	s.addRoute(ws, accountTrxController)
+	restful.Add(ws)
 	s.addSwaggerDocs()
 }
 

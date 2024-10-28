@@ -22,7 +22,6 @@ type Endpoint interface {
 }
 
 type Server struct {
-	webService   *restful.WebService
 	cfg          *config.Config
 	httpServer   *http.Server
 	dbConnection *gorm.DB
@@ -32,8 +31,6 @@ func (s *Server) Initialize(cfg *config.Config) {
 	s.cfg = cfg
 	s.initializeDb()
 	s.migrateDBSchema()
-	s.webService = new(restful.WebService)
-	s.webService.Path(contextPath)
 	s.initializeRoutes()
 }
 
@@ -51,8 +48,8 @@ func (s *Server) Stop(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
 }
 
-func (s *Server) addRoute(endpoint Endpoint) {
-	endpoint.RegisterEndpoint(s.webService, s.dbConnection)
+func (s *Server) addRoute(ws *restful.WebService, endpoint Endpoint) {
+	endpoint.RegisterEndpoint(ws, s.dbConnection)
 }
 
 func (s *Server) initializeDb() {

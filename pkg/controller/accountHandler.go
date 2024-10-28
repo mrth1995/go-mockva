@@ -1,23 +1,28 @@
-package handler
+package controller
 
 import (
 	"github.com/emicklei/go-restful/v3"
-	"github.com/mrth1995/go-mockva/pkg/account/model"
-	"github.com/mrth1995/go-mockva/pkg/account/repository"
-	"github.com/mrth1995/go-mockva/pkg/account/service"
+	"github.com/mrth1995/go-mockva/pkg/model"
 	"github.com/mrth1995/go-mockva/pkg/server/responseWriter"
+	"github.com/mrth1995/go-mockva/pkg/service"
 	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 )
 
-type AccountHandler struct {
-	AccountService    service.AccountService
-	AccountRepository repository.AccountRepository
+type AccountController struct {
+	AccountService service.AccountService
 }
 
-func (h *AccountHandler) FindByUserID(request *restful.Request, response *restful.Response) {
+func NewAccountController(accountService *service.AccountService) *AccountController {
+	return &AccountController{
+		AccountService: *accountService,
+	}
+}
+
+func (h *AccountController) FindByUserID(request *restful.Request, response *restful.Response) {
+	ctx := request.Request.Context()
+
 	accountId := request.PathParameter("accountId")
-	existingAccount, err := h.AccountRepository.FindById(accountId)
+	existingAccount, err := h.AccountService.FindByID(ctx, accountId)
 	if existingAccount == nil && err != nil {
 		logrus.Infof("Account %v not found", accountId)
 		responseWriter.WriteBadRequest(err, response)
@@ -26,7 +31,9 @@ func (h *AccountHandler) FindByUserID(request *restful.Request, response *restfu
 	responseWriter.WriteOK(existingAccount, response)
 }
 
-func (h *AccountHandler) CreateAccount(request *restful.Request, response *restful.Response) {
+func (h *AccountController) CreateAccount(request *restful.Request, response *restful.Response) {
+	ctx := request.Request.Context()
+
 	var accountRegister model.AccountRegister
 	err := request.ReadEntity(&accountRegister)
 	if err != nil {
@@ -34,7 +41,7 @@ func (h *AccountHandler) CreateAccount(request *restful.Request, response *restf
 		responseWriter.WriteBadRequest(err, response)
 		return
 	}
-	newAccount, err := h.AccountService.Register(&accountRegister)
+	newAccount, err := h.AccountService.Register(ctx, &accountRegister)
 	if err != nil {
 		logrus.Error(err)
 		responseWriter.WriteBadRequest(err, response)
@@ -43,7 +50,9 @@ func (h *AccountHandler) CreateAccount(request *restful.Request, response *restf
 	responseWriter.WriteOK(newAccount, response)
 }
 
-func (h *AccountHandler) EditAccount(request *restful.Request, response *restful.Response) {
+func (h *AccountController) EditAccount(request *restful.Request, response *restful.Response) {
+	ctx := request.Request.Context()
+
 	accountID := request.PathParameter("accountId")
 
 	var accountEdit model.AccountEdit
@@ -53,18 +62,11 @@ func (h *AccountHandler) EditAccount(request *restful.Request, response *restful
 		responseWriter.WriteBadRequest(err, response)
 		return
 	}
-	account, err := h.AccountService.Edit(accountID, &accountEdit)
+	account, err := h.AccountService.Edit(ctx, accountID, &accountEdit)
 	if err != nil {
 		logrus.Error(err)
 		responseWriter.WriteBadRequest(err, response)
 		return
 	}
 	responseWriter.WriteOK(account, response)
-}
-
-func NewAccountHandler(dbConnection *gorm.DB) *AccountHandler {
-	return &AccountHandler{
-		AccountRepository: repository.NewAccountRepository(dbConnection),
-		AccountService:    service.NewAccountService(repository.NewAccountRepository(dbConnection)),
-	}
 }
