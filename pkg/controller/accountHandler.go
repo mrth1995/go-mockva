@@ -12,9 +12,9 @@ type AccountController struct {
 	AccountService service.AccountService
 }
 
-func NewAccountController(accountService *service.AccountService) *AccountController {
+func NewAccountController(accountService service.AccountService) *AccountController {
 	return &AccountController{
-		AccountService: *accountService,
+		AccountService: accountService,
 	}
 }
 

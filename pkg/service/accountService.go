@@ -1,8 +1,9 @@
 package service
 
+//go:generate mockgen -destination=mock/mockAccountService.go -package=mock github.com/mrth1995/go-mockva/pkg/service AccountService
+
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -10,24 +11,52 @@ import (
 	"github.com/mrth1995/go-mockva/pkg/model"
 	"github.com/mrth1995/go-mockva/pkg/repository"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
-type AccountService struct {
+// AccountService defines the interface for account-related business operations.
+type AccountService interface {
+	// FindByID retrieves an account by its ID.
+	FindByID(ctx context.Context, id string) (*domain.Account, error)
+
+	// Register creates a new account.
+	Register(ctx context.Context, register *model.AccountRegister) (*domain.Account, error)
+
+	// Edit updates an existing account's information.
+	Edit(ctx context.Context, id string, edit *model.AccountEdit) (*domain.Account, error)
+
+	// FindAndLockAccountBalance retrieves an account balance with a pessimistic lock.
+	FindAndLockAccountBalance(ctx context.Context, accountID string) (*domain.AccountBalance, error)
+
+	// UpdateBalance updates an account's balance.
+	// UpdateBalance updates the account balance within the provided transaction context.
+	// Parameters:
+	//   - ctx: The request context
+	//   - accountBalance: The AccountBalance to update
+	//   - tx: The GORM transaction context
+	// Returns:
+	//   - *domain.AccountBalance: The updated balance
+	//   - error: If the operation fails
+	UpdateBalance(ctx context.Context, accountBalance *domain.AccountBalance, tx *gorm.DB) (*domain.AccountBalance, error)
+}
+
+// AccountServiceImpl implements the AccountService interface.
+type AccountServiceImpl struct {
 	accountRepository repository.AccountRepository
 }
 
-func NewAccountService(accountRepo repository.AccountRepository) *AccountService {
-	return &AccountService{
+// NewAccountService creates a new instance of AccountService.
+func NewAccountService(accountRepo repository.AccountRepository) AccountService {
+	return &AccountServiceImpl{
 		accountRepository: accountRepo,
 	}
 }
 
-func (s *AccountService) FindByID(ctx context.Context, id string) (*domain.Account, error) {
-	// todo: implement me
-	return nil, errors.New("unsupported operation")
+func (s *AccountServiceImpl) FindByID(ctx context.Context, id string) (*domain.Account, error) {
+	return s.accountRepository.FindByID(ctx, id)
 }
 
-func (s *AccountService) Register(ctx context.Context, register *model.AccountRegister) (*domain.Account, error) {
+func (s *AccountServiceImpl) Register(ctx context.Context, register *model.AccountRegister) (*domain.Account, error) {
 	existingAccount, notFound := s.accountRepository.FindByID(ctx, register.ID)
 	if existingAccount != nil && notFound == nil {
 		return nil, fmt.Errorf("account %v already exist", register.ID)
@@ -53,7 +82,7 @@ func (s *AccountService) Register(ctx context.Context, register *model.AccountRe
 	return newAccount, nil
 }
 
-func (s *AccountService) Edit(ctx context.Context, id string, edit *model.AccountEdit) (*domain.Account, error) {
+func (s *AccountServiceImpl) Edit(ctx context.Context, id string, edit *model.AccountEdit) (*domain.Account, error) {
 	existingAccount, err := s.accountRepository.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -82,12 +111,19 @@ func (s *AccountService) Edit(ctx context.Context, id string, edit *model.Accoun
 	return existingAccount, nil
 }
 
-func (s *AccountService) FindAndLockAccountBalance(ctx context.Context, accountID string) (*domain.AccountBalance, error) {
-	// todo: implement me
-	return nil, errors.New("unsupported operation")
+func (s *AccountServiceImpl) FindAndLockAccountBalance(ctx context.Context, accountID string) (*domain.AccountBalance, error) {
+	return s.accountRepository.FindAndLockAccountBalance(ctx, accountID)
 }
 
-func (s *AccountService) UpdateBalance(ctx context.Context, accountBalance *domain.AccountBalance) (*domain.AccountBalance, error) {
-	// todo: implement me
-	return nil, errors.New("unsupported operation")
+// UpdateBalance updates the account balance within the provided transaction context.
+// Parameters:
+//   - ctx: The request context
+//   - accountBalance: The AccountBalance to update
+//   - tx: The GORM transaction context
+//
+// Returns:
+//   - *domain.AccountBalance: The updated balance
+//   - error: If the operation fails
+func (s *AccountServiceImpl) UpdateBalance(ctx context.Context, accountBalance *domain.AccountBalance, tx *gorm.DB) (*domain.AccountBalance, error) {
+	return s.accountRepository.UpdateBalance(ctx, accountBalance, tx)
 }

@@ -2,20 +2,16 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/mock"
-
 	"github.com/mrth1995/go-mockva/pkg/domain"
 	"github.com/mrth1995/go-mockva/pkg/errors"
-	"github.com/mrth1995/go-mockva/pkg/utils"
-
-	accountMock "github.com/mrth1995/go-mockva/pkg/repository/mock"
-
 	"github.com/mrth1995/go-mockva/pkg/model"
+	accountMock "github.com/mrth1995/go-mockva/pkg/repository/mock"
+	"github.com/mrth1995/go-mockva/pkg/utils"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 const (
@@ -23,6 +19,9 @@ const (
 )
 
 func TestAccountServiceImpl_Register(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	ctx := context.Background()
 
 	birthDate := "1996-03-11"
@@ -34,27 +33,40 @@ func TestAccountServiceImpl_Register(t *testing.T) {
 		Gender:               false,
 		AllowNegativeBalance: false,
 	}
-	repository := new(accountMock.MockAccountRepository)
-	repository.On("FindByID", mock.Anything, "100").Return(nil, fmt.Errorf("account %v not found", accountRegister.ID))
-	//birtDateTime, _ := time.Parse("2006-01-02", birthDate)
-	var newAccount *domain.Account
-	repository.On("Save", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		newAccount = args.Get(1).(*domain.Account)
-	})
-	accountService := &AccountService{accountRepository: repository}
+
+	repository := accountMock.NewMockAccountRepository(ctrl)
+
+	// Mock FindByID to return not found error
+	repository.EXPECT().
+		FindByID(gomock.Any(), "100").
+		Return(nil, errors.NewAccountNotFound("100"))
+
+	// Mock Save to capture the saved account
+	var capturedAccount *domain.Account
+	repository.EXPECT().
+		Save(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, acc *domain.Account) error {
+			capturedAccount = acc
+			return nil
+		})
+
+	accountService := &AccountServiceImpl{accountRepository: repository}
 	account, accountAlreadyExist := accountService.Register(ctx, accountRegister)
 
 	assertions := require.New(t)
 	assertions.Nil(accountAlreadyExist, "Should not error")
 	assertions.NotNilf(account, "Created account should not be empty")
-	assertions.Equalf(newAccount.AccountID, account.AccountID, "Account ID should equals")
-	assertions.Equalf(newAccount.Address, account.Address, "Address should equals")
-	assertions.Equalf(newAccount.BirthDate, account.BirthDate, "BirthDate should equals")
-	assertions.Equalf(newAccount.Gender, account.Gender, "Gender should equals")
-	assertions.Equalf(newAccount.Name, account.Name, "Name should equals")
+	assertions.Equalf(capturedAccount.ID, account.ID, "Account ID should equals")
+	assertions.Equalf(capturedAccount.Address, account.Address, "Address should equals")
+	assertions.Equalf(capturedAccount.BirthDate, account.BirthDate, "BirthDate should equals")
+	assertions.Equalf(capturedAccount.Gender, account.Gender, "Gender should equals")
+	assertions.Equalf(capturedAccount.Name, account.Name, "Name should equals")
 }
 
 func TestAccountServiceImpl_Register_AccountAlreadyExist(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	ctx := context.Background()
 
 	dateString := "1996-03-11"
@@ -67,10 +79,12 @@ func TestAccountServiceImpl_Register_AccountAlreadyExist(t *testing.T) {
 		AllowNegativeBalance: false,
 	}
 
-	repository := &accountMock.MockAccountRepository{}
-	repository.On("FindByID", mock.Anything, accountRegister.ID).Return(&domain.Account{}, nil)
+	repository := accountMock.NewMockAccountRepository(ctrl)
+	repository.EXPECT().
+		FindByID(gomock.Any(), accountRegister.ID).
+		Return(&domain.Account{}, nil)
 
-	accountService := &AccountService{
+	accountService := &AccountServiceImpl{
 		accountRepository: repository,
 	}
 
@@ -81,6 +95,9 @@ func TestAccountServiceImpl_Register_AccountAlreadyExist(t *testing.T) {
 }
 
 func TestAccountServiceImpl_Edit(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	ctx := context.Background()
 
 	edit := getEditAccount()
@@ -95,30 +112,43 @@ func TestAccountServiceImpl_Edit(t *testing.T) {
 		Gender:    false,
 	}
 
-	repository := &accountMock.MockAccountRepository{}
-	repository.On("FindByID", mock.Anything, accountID).Return(existingAccount, nil)
-	var updatedAccount *domain.Account
-	repository.On("Update", mock.Anything, mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
-		updatedAccount = args.Get(1).(*domain.Account)
-	})
-	service := &AccountService{accountRepository: repository}
+	repository := accountMock.NewMockAccountRepository(ctrl)
+	repository.EXPECT().
+		FindByID(gomock.Any(), accountID).
+		Return(existingAccount, nil)
+
+	var capturedAccount *domain.Account
+	repository.EXPECT().
+		Update(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, acc *domain.Account) (*domain.Account, error) {
+			capturedAccount = acc
+			return nil, nil
+		})
+
+	service := &AccountServiceImpl{accountRepository: repository}
 	account, err := service.Edit(ctx, accountID, edit)
 	assertions := require.New(t)
 	assertions.Nil(err)
 	assertions.NotNilf(account, "Updated account not nil")
-	assertions.Equal(*edit.Name, updatedAccount.Name)
-	assertions.Equal(*edit.Address, updatedAccount.Address)
-	assertions.Equal(*edit.Gender, updatedAccount.Gender)
-	assertions.Equal(editedBirthdate.String(), updatedAccount.BirthDate.String())
+	assertions.Equal(*edit.Name, capturedAccount.Name)
+	assertions.Equal(*edit.Address, capturedAccount.Address)
+	assertions.Equal(*edit.Gender, capturedAccount.Gender)
+	assertions.Equal(editedBirthdate.String(), capturedAccount.BirthDate.String())
 }
 
 func TestAccountServiceImpl_Edit_AccountNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	ctx := context.Background()
 
 	edit := getEditAccount()
-	repository := &accountMock.MockAccountRepository{}
-	repository.On("FindByID", mock.Anything, accountID).Return(nil, errors.NewAccountNotFound(accountID))
-	service := &AccountService{
+	repository := accountMock.NewMockAccountRepository(ctrl)
+	repository.EXPECT().
+		FindByID(gomock.Any(), accountID).
+		Return(nil, errors.NewAccountNotFound(accountID))
+
+	service := &AccountServiceImpl{
 		accountRepository: repository,
 	}
 	account, err := service.Edit(ctx, accountID, edit)

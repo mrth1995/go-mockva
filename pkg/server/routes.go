@@ -19,7 +19,8 @@ func (s *Server) initializeRoutes() {
 	accountTrxRepository := postgresql.NewAccountTrxRepository(s.dbConnection)
 
 	accountService := service.NewAccountService(accountRepository)
-	accountTrxService := service.NewAccountTrxService(accountService, accountTrxRepository)
+	txManager := postgresql.NewGormTransactionManager(s.dbConnection)
+	accountTrxService := service.NewAccountTrxService(accountService, accountTrxRepository, txManager)
 
 	accountController := controller.NewAccountController(accountService)
 	accountTrxController := controller.NewAccountTransactionController(accountTrxService)

@@ -16,9 +16,16 @@ func NewAccountTrxRepository(dbConnection *gorm.DB) repository.AccountTransactio
 	}
 }
 
-func (r *AccountTrxRepositoryImpl) Save(trx *domain.AccountTransaction) error {
-	tx := r.Connection.Begin()
-	tx.Create(trx)
-	tx.Commit()
+// Save persists an AccountTransaction within the provided transaction context.
+// Parameters:
+//   - trx: The AccountTransaction to save
+//   - tx: The GORM transaction context
+//
+// Returns:
+//   - error: If the operation fails
+func (r *AccountTrxRepositoryImpl) Save(trx *domain.AccountTransaction, tx *gorm.DB) error {
+	if err := tx.Create(trx).Error; err != nil {
+		return err
+	}
 	return nil
 }

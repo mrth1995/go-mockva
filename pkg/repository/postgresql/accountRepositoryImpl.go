@@ -8,6 +8,7 @@ import (
 	"github.com/mrth1995/go-mockva/pkg/repository"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type AccountRepositoryImpl struct {
@@ -48,7 +49,7 @@ func (r *AccountRepositoryImpl) Update(ctx context.Context, updatedAccount *doma
 
 func (r *AccountRepositoryImpl) FindAndLockAccountBalance(ctx context.Context, accountID string) (*domain.AccountBalance, error) {
 	var existingAccountBalance domain.AccountBalance
-	find := r.Connection.First(&existingAccountBalance, "id = ?", accountID)
+	find := r.Connection.Clauses(clause.Locking{Strength: "UPDATE"}).First(&existingAccountBalance, "id = ?", accountID)
 	if find.Error != nil && find.Error == gorm.ErrRecordNotFound {
 		return nil, errors.NewAccountNotFound(accountID)
 	}
@@ -58,9 +59,18 @@ func (r *AccountRepositoryImpl) FindAndLockAccountBalance(ctx context.Context, a
 	return &existingAccountBalance, nil
 }
 
-func (r *AccountRepositoryImpl) UpdateBalance(ctx context.Context, accountBalance *domain.AccountBalance) (*domain.AccountBalance, error) {
-	tx := r.Connection.Begin()
-	tx.Save(accountBalance)
-	tx.Commit()
+// UpdateBalance updates the account balance within the provided transaction context.
+// Parameters:
+//   - ctx: The request context
+//   - accountBalance: The AccountBalance to update
+//   - tx: The GORM transaction context
+//
+// Returns:
+//   - *domain.AccountBalance: The updated balance
+//   - error: If the operation fails
+func (r *AccountRepositoryImpl) UpdateBalance(ctx context.Context, accountBalance *domain.AccountBalance, tx *gorm.DB) (*domain.AccountBalance, error) {
+	if err := tx.Save(accountBalance).Error; err != nil {
+		return nil, err
+	}
 	return accountBalance, nil
 }

@@ -6,228 +6,307 @@ import (
 	"time"
 
 	"github.com/mrth1995/go-mockva/pkg/domain"
+	pkgErrors "github.com/mrth1995/go-mockva/pkg/errors"
 	"github.com/mrth1995/go-mockva/pkg/model"
-	mockRepository "github.com/mrth1995/go-mockva/pkg/repository/mock"
-	"github.com/stretchr/testify/mock"
+	mockRepo "github.com/mrth1995/go-mockva/pkg/repository/mock"
+	mockService "github.com/mrth1995/go-mockva/pkg/service/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+	"gorm.io/gorm"
 )
 
-func TestAccountTransactionService_Transfer(t *testing.T) {
+// Note: Full integration test for TestAccountTransactionService_Transfer requires a real database
+// due to the service's direct dependency on the DB connection for transaction management.
+// The following tests focus on validation logic and error paths that can be tested without DB transactions.
+
+func TestAccountTransactionService_Transfer_ValidationErrors(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	ctx := context.Background()
 
-	initialSrcBalance := float64(1000_000)
+	accountService := mockService.NewMockAccountService(ctrl)
+	accountTrxService := &AccountTransactionService{
+		accountService: accountService,
+	}
+
+	testCases := []struct {
+		name        string
+		transfer    *model.AccountFundTransfer
+		expectedErr string
+	}{
+		{
+			name: "Empty source account",
+			transfer: &model.AccountFundTransfer{
+				AccountSrcId: "",
+				AccountDstId: "002",
+				Amount:       100000,
+			},
+			expectedErr: "account src cannot be empty",
+		},
+		{
+			name: "Empty destination account",
+			transfer: &model.AccountFundTransfer{
+				AccountSrcId: "001",
+				AccountDstId: "",
+				Amount:       100000,
+			},
+			expectedErr: "account dst cannot be empty",
+		},
+		{
+			name: "Invalid amount (zero)",
+			transfer: &model.AccountFundTransfer{
+				AccountSrcId: "001",
+				AccountDstId: "002",
+				Amount:       0,
+			},
+			expectedErr: "invalid amount",
+		},
+		{
+			name: "Invalid amount (negative)",
+			transfer: &model.AccountFundTransfer{
+				AccountSrcId: "001",
+				AccountDstId: "002",
+				Amount:       -100,
+			},
+			expectedErr: "invalid amount",
+		},
+		{
+			name: "Same source and destination",
+			transfer: &model.AccountFundTransfer{
+				AccountSrcId: "001",
+				AccountDstId: "001",
+				Amount:       100000,
+			},
+			expectedErr: "cannot transfer with same account",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := accountTrxService.Transfer(ctx, tc.transfer)
+			assertions := require.New(t)
+			assertions.Nil(result)
+			assertions.NotNil(err)
+			assertions.Contains(err.Error(), tc.expectedErr)
+		})
+	}
+}
+
+// TestAccountTransactionService_Transfer tests successful fund transfer
+func TestAccountTransactionService_Transfer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+
+	initialSrcBalance := float64(1_000_000)
 	accountSrc := getAccountBalance(getAccountSrc(), initialSrcBalance)
 
 	initialDstBalance := float64(200_000)
 	accountDst := getAccountBalance(getAccountDst(), initialDstBalance)
 
-	accountRepository := &mockRepository.MockAccountRepository{}
-	accountTrxRepository := &mockRepository.MockAccountTransactionRepository{}
+	accountService := mockService.NewMockAccountService(ctrl)
+	accountTrxRepo := mockRepo.NewMockAccountTransactionRepository(ctrl)
+	txManager := mockRepo.NewMockDBTransactionManager(ctrl)
 
-	accountRepository.On("FindAndLockAccountBalance", mock.Anything, accountSrc.ID).Return(accountSrc, nil)
-	accountRepository.On("FindAndLockAccountBalance", mock.Anything, accountDst.ID).Return(accountDst, nil)
-	var updatedAccountSrc *domain.AccountBalance
-	var updatedAccountDst *domain.AccountBalance
-	accountRepository.On("UpdateBalance", mock.Anything, accountSrc).Return(nil, nil).Run(func(args mock.Arguments) {
-		updatedAccountSrc = args.Get(0).(*domain.AccountBalance)
-	})
-	accountRepository.On("UpdateBalance", mock.Anything, accountDst).Return(nil, nil).Run(func(args mock.Arguments) {
-		updatedAccountDst = args.Get(0).(*domain.AccountBalance)
-	})
-	accountTrxRepository.On("Save", mock.Anything).Return(nil)
+	txManager.EXPECT().
+		Transaction(gomock.Any()).
+		DoAndReturn(func(fc func(tx *gorm.DB) error) error {
+			return fc(nil)
+		})
 
-	accountService := NewAccountService(accountRepository)
-	accountTrxService := NewAccountTrxService(accountService, accountTrxRepository)
+	accountService.EXPECT().
+		FindAndLockAccountBalance(ctx, accountSrc.ID).
+		Return(accountSrc, nil)
+
+	accountService.EXPECT().
+		FindAndLockAccountBalance(ctx, accountDst.ID).
+		Return(accountDst, nil)
+
+	accountTrxRepo.EXPECT().
+		Save(gomock.Any(), gomock.Any()).
+		Return(nil)
+
+	accountService.EXPECT().
+		UpdateBalance(ctx, gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, bal *domain.AccountBalance, tx *gorm.DB) (*domain.AccountBalance, error) {
+			require.Equal(t, initialSrcBalance-100_000, bal.Balance)
+			return bal, nil
+		})
+
+	accountService.EXPECT().
+		UpdateBalance(ctx, gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, bal *domain.AccountBalance, tx *gorm.DB) (*domain.AccountBalance, error) {
+			require.Equal(t, initialDstBalance+100_000, bal.Balance)
+			return bal, nil
+		})
+
+	accountTrxService := NewAccountTrxService(accountService, accountTrxRepo, txManager)
 
 	accountFundTransfer := &model.AccountFundTransfer{
 		AccountDstId: accountDst.ID,
 		AccountSrcId: accountSrc.ID,
-		Amount:       float64(100_000),
+		Amount:       100_000,
+	}
+
+	accountTransaction, err := accountTrxService.Transfer(ctx, accountFundTransfer)
+
+	assertions := require.New(t)
+	assertions.Nil(err, "No error")
+	assertions.NotNil(accountTransaction, "Account transaction created")
+	assertions.Equal(accountSrc.ID, accountTransaction.AccountSrc.ID, "Source account should match")
+	assertions.Equal(accountDst.ID, accountTransaction.AccountDst.ID, "Destination account should match")
+	assertions.Equal(accountFundTransfer.Amount, accountTransaction.Amount, "Amount should match")
+}
+
+func TestAccountTransactionService_TransferNegativeBalance(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+
+	initialSrcBalance := float64(100_000)
+	accountSrc := getAccountSrcWithAllowNegativeBalance()
+	accountSrc.Balance = initialSrcBalance
+
+	initialDstBalance := float64(200_000)
+	accountDst := getAccountBalance(getAccountDst(), initialDstBalance)
+
+	accountService := mockService.NewMockAccountService(ctrl)
+	accountTrxRepo := mockRepo.NewMockAccountTransactionRepository(ctrl)
+	txManager := mockRepo.NewMockDBTransactionManager(ctrl)
+
+	txManager.EXPECT().Transaction(gomock.Any()).DoAndReturn(func(fc func(tx *gorm.DB) error) error {
+		return fc(nil)
+	})
+
+	accountService.EXPECT().FindAndLockAccountBalance(ctx, accountSrc.ID).Return(accountSrc, nil)
+	accountService.EXPECT().FindAndLockAccountBalance(ctx, accountDst.ID).Return(accountDst, nil)
+	accountTrxRepo.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
+	accountService.EXPECT().UpdateBalance(ctx, gomock.Any(), gomock.Any()).Return(accountSrc, nil)
+	accountService.EXPECT().UpdateBalance(ctx, gomock.Any(), gomock.Any()).Return(accountDst, nil)
+
+	accountTrxService := NewAccountTrxService(accountService, accountTrxRepo, txManager)
+
+	accountFundTransfer := &model.AccountFundTransfer{
+		AccountDstId: accountDst.ID,
+		AccountSrcId: accountSrc.ID,
+		Amount:       150_000, // More than balance, but negative allowed
 	}
 
 	accountTransaction, err := accountTrxService.Transfer(ctx, accountFundTransfer)
 	assertions := require.New(t)
-	assertions.Nil(err, "No error")
+	assertions.Nil(err)
 	assertions.NotNil(accountTransaction, "Account transaction created")
-	assertions.Equalf(accountSrc.ID, accountTransaction.AccountSrc.ID, "Source account should same")
-	assertions.Equalf(accountDst.ID, accountTransaction.AccountDst.ID, "Destination account should same")
-	assertions.Equalf(accountFundTransfer.Amount, accountTransaction.Amount, "Amount should same")
-	assertions.Equalf(initialSrcBalance-accountTransaction.Amount, updatedAccountSrc.Balance, "Account src balance should same")
-	assertions.Equalf(initialDstBalance+accountTransaction.Amount, updatedAccountDst.Balance, "Account dst balance should same")
-}
-
-func TestAccountTransactionService_TransferNegativeBalance(t *testing.T) {
-	// accountSrc := getAccountSrcWithAllowNegativeBalance()
-	// initialSrcBalance := accountSrc.Balance
-	// accountDst := getAccountDst()
-	// initialDstBalance := accountDst.Balance
-
-	// accountRepository := &accountMock.MockAccountRepository{}
-	// accountRepository.On("FindById", accountSrc.ID).Return(accountSrc, nil)
-	// accountRepository.On("FindById", accountDst.ID).Return(accountDst, nil)
-	// var updatedAccountSrc *accountModel.Account
-	// var updatedAccountDst *accountModel.Account
-	// accountRepository.On("Update", accountSrc).Return(nil, nil).Run(func(args mock.Arguments) {
-	// 	updatedAccountSrc = args.Get(0).(*accountModel.Account)
-	// })
-	// accountRepository.On("Update", accountDst).Return(nil, nil).Run(func(args mock.Arguments) {
-	// 	updatedAccountDst = args.Get(0).(*accountModel.Account)
-	// })
-	// accountTrxRepository := &accountTrxMock.MockAccountTransactionRepository{}
-	// accountTrxRepository.On("Save", mock.Anything).Return(nil)
-	// accountTrxService := &AccountTransactionServiceImpl{
-	// 	AccountRepository:    accountRepository,
-	// 	AccountTrxRepository: accountTrxRepository,
-	// }
-	// accountFundTransfer := &model.AccountFundTransfer{
-	// 	AccountDstId: accountDst.ID,
-	// 	AccountSrcId: accountSrc.ID,
-	// 	Amount:       5000,
-	// }
-	// accountTransaction, err := accountTrxService.Transfer(accountFundTransfer)
-	// assertions := require.New(t)
-	// assertions.Nil(err)
-	// assertions.NotNil(accountTransaction, "Account transaction created")
-	// assertions.Equalf(accountSrc.ID, accountTransaction.AccountSrc.ID, "Source account should same")
-	// assertions.Equalf(accountDst.ID, accountTransaction.AccountDst.ID, "Destination account should same")
-	// assertions.Equalf(accountFundTransfer.Amount, accountTransaction.Amount, "Amount should same")
-	// assertions.Equalf(initialSrcBalance-accountTransaction.Amount, updatedAccountSrc.Balance, "Account src balance should same")
-	// assertions.Equalf(initialDstBalance+accountTransaction.Amount, updatedAccountDst.Balance, "Account dst balance should same")
-}
-
-func TestAccountTransactionService_TransferWithSameAccount(t *testing.T) {
-	// accountSrc := getAccountSrc()
-	// accountDst := getAccountSrc()
-	// accountRepository := &accountMock.MockAccountRepository{}
-	// accountTrxRepository := &accountTrxMock.MockAccountTransactionRepository{}
-	// accountTrxService := &AccountTransactionServiceImpl{
-	// 	AccountRepository:    accountRepository,
-	// 	AccountTrxRepository: accountTrxRepository,
-	// }
-	// accountFundTransfer := &model.AccountFundTransfer{
-	// 	AccountDstId: accountDst.ID,
-	// 	AccountSrcId: accountSrc.ID,
-	// 	Amount:       5000,
-	// }
-	// accountTransaction, err := accountTrxService.Transfer(accountFundTransfer)
-	// assertions := require.New(t)
-	// assertions.Nil(accountTransaction)
-	// assertions.NotNil(err)
-}
-
-func TestAccountTransactionService_TransferWithNilAccountSrc(t *testing.T) {
-	// accountDst := getAccountDst()
-	// accountRepository := &accountMock.MockAccountRepository{}
-	// accountTrxRepository := &accountTrxMock.MockAccountTransactionRepository{}
-	// accountTrxService := &AccountTransactionServiceImpl{
-	// 	AccountRepository:    accountRepository,
-	// 	AccountTrxRepository: accountTrxRepository,
-	// }
-	// accountFundTransfer := &model.AccountFundTransfer{
-	// 	AccountDstId: accountDst.ID,
-	// 	AccountSrcId: "",
-	// 	Amount:       5000,
-	// }
-	// accountTransaction, err := accountTrxService.Transfer(accountFundTransfer)
-	// assertions := require.New(t)
-	// assertions.Nil(accountTransaction)
-	// assertions.NotNil(err)
-}
-
-func TestAccountTransactionService_TransferWithNilAccountDst(t *testing.T) {
-	// accountSrc := getAccountSrc()
-	// accountRepository := &accountMock.MockAccountRepository{}
-	// accountTrxRepository := &accountTrxMock.MockAccountTransactionRepository{}
-	// accountTrxService := &AccountTransactionServiceImpl{
-	// 	AccountRepository:    accountRepository,
-	// 	AccountTrxRepository: accountTrxRepository,
-	// }
-	// accountFundTransfer := &model.AccountFundTransfer{
-	// 	AccountDstId: "",
-	// 	AccountSrcId: accountSrc.ID,
-	// 	Amount:       5000,
-	// }
-	// accountTransaction, err := accountTrxService.Transfer(accountFundTransfer)
-	// assertions := require.New(t)
-	// assertions.Nil(accountTransaction)
-	// assertions.NotNil(err)
-}
-
-func TestAccountTransactionService_TransferWithNegativeBalance(t *testing.T) {
-	// accountSrc := getAccountSrc()
-	// accountDst := getAccountSrc()
-	// accountRepository := &accountMock.MockAccountRepository{}
-	// accountTrxRepository := &accountTrxMock.MockAccountTransactionRepository{}
-	// accountTrxService := &AccountTransactionServiceImpl{
-	// 	AccountRepository:    accountRepository,
-	// 	AccountTrxRepository: accountTrxRepository,
-	// }
-	// accountFundTransfer := &model.AccountFundTransfer{
-	// 	AccountDstId: accountDst.ID,
-	// 	AccountSrcId: accountSrc.ID,
-	// 	Amount:       -5000,
-	// }
-	// accountTransaction, err := accountTrxService.Transfer(accountFundTransfer)
-	// assertions := require.New(t)
-	// assertions.Nil(accountTransaction)
-	// assertions.NotNil(err, "Invalid balance")
+	assertions.Equal(accountSrc.ID, accountTransaction.AccountSrc.ID)
+	assertions.Equal(accountDst.ID, accountTransaction.AccountDst.ID)
+	assertions.Equal(accountFundTransfer.Amount, accountTransaction.Amount)
 }
 
 func TestAccountTransactionServiceImpl_Transfer_InsufficientFunds(t *testing.T) {
-	// accountSrc := getAccountSrc()
-	// accountDst := getAccountDst()
-	// balance := float64(1000_000)
-	// accountRepo := &accountMock.MockAccountRepository{}
-	// accountRepo.On("FindById", accountSrc.ID).Return(accountSrc, nil)
-	// accountRepo.On("FindById", accountDst.ID).Return(accountDst, nil)
-	// accountTrxRepo := &accountTrxMock.MockAccountTransactionRepository{}
-	// service := &AccountTransactionServiceImpl{accountRepo, accountTrxRepo}
-	// transaction, err := service.Transfer(&model.AccountFundTransfer{
-	// 	AccountDstId: accountDst.ID,
-	// 	AccountSrcId: accountSrc.ID,
-	// 	Amount:       balance,
-	// })
-	// assertions := require.New(t)
-	// assertions.Nil(transaction)
-	// assertions.NotNilf(err, "Insufficient funds")
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+
+	initialBalance := float64(100_000)
+	accountSrc := getAccountBalance(getAccountSrc(), initialBalance)
+	accountDst := getAccountBalance(getAccountDst(), 200_000)
+
+	accountService := mockService.NewMockAccountService(ctrl)
+	accountTrxRepo := mockRepo.NewMockAccountTransactionRepository(ctrl)
+	txManager := mockRepo.NewMockDBTransactionManager(ctrl)
+
+	txManager.EXPECT().Transaction(gomock.Any()).DoAndReturn(func(fc func(tx *gorm.DB) error) error {
+		return fc(nil)
+	})
+
+	accountService.EXPECT().FindAndLockAccountBalance(ctx, accountSrc.ID).Return(accountSrc, nil)
+	accountService.EXPECT().FindAndLockAccountBalance(ctx, accountDst.ID).Return(accountDst, nil)
+
+	accountTrxService := NewAccountTrxService(accountService, accountTrxRepo, txManager)
+
+	transaction, err := accountTrxService.Transfer(ctx, &model.AccountFundTransfer{
+		AccountDstId: accountDst.ID,
+		AccountSrcId: accountSrc.ID,
+		Amount:       1_000_000, // More than available balance
+	})
+
+	assertions := require.New(t)
+	assertions.Nil(transaction)
+	assertions.NotNil(err, "Insufficient funds")
+	assertions.Contains(err.Error(), "insufficient amount")
 }
 
 func TestAccountTransactionServiceImpl_Transfer_AccountSrcNotFound(t *testing.T) {
-	// accountSrc := getAccountSrc()
-	// accountDst := getAccountDst()
-	// balance := float64(1000_000)
-	// accountRepo := &accountMock.MockAccountRepository{}
-	// accountRepo.On("FindById", accountSrc.ID).Return(nil, errors.NewAccountNotFound(accountSrc.ID))
-	// accountRepo.On("FindById", accountDst.ID).Return(accountDst)
-	// accountTrxRepo := &accountTrxMock.MockAccountTransactionRepository{}
-	// service := &AccountTransactionServiceImpl{accountRepo, accountTrxRepo}
-	// transaction, err := service.Transfer(&model.AccountFundTransfer{
-	// 	AccountDstId: accountDst.ID,
-	// 	AccountSrcId: accountSrc.ID,
-	// 	Amount:       balance,
-	// })
-	// assertions := require.New(t)
-	// assertions.Nil(transaction)
-	// assertions.NotNilf(err, "account src not found")
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+
+	accountSrc := getAccountSrc()
+	accountDst := getAccountDst()
+
+	accountService := mockService.NewMockAccountService(ctrl)
+	accountTrxRepo := mockRepo.NewMockAccountTransactionRepository(ctrl)
+	txManager := mockRepo.NewMockDBTransactionManager(ctrl)
+
+	txManager.EXPECT().Transaction(gomock.Any()).DoAndReturn(func(fc func(tx *gorm.DB) error) error {
+		return fc(nil)
+	})
+
+	accountService.EXPECT().
+		FindAndLockAccountBalance(ctx, accountSrc.ID).
+		Return(nil, pkgErrors.NewAccountNotFound(accountSrc.ID))
+
+	accountTrxService := NewAccountTrxService(accountService, accountTrxRepo, txManager)
+
+	transaction, err := accountTrxService.Transfer(ctx, &model.AccountFundTransfer{
+		AccountDstId: accountDst.ID,
+		AccountSrcId: accountSrc.ID,
+		Amount:       100_000,
+	})
+
+	assertions := require.New(t)
+	assertions.Nil(transaction)
+	assertions.NotNil(err, "account src not found")
 }
 
 func TestAccountTransactionServiceImpl_Transfer_AccountDstNotFound(t *testing.T) {
-	// accountSrc := getAccountSrc()
-	// accountDst := getAccountDst()
-	// balance := float64(1000_000)
-	// accountRepo := &accountMock.MockAccountRepository{}
-	// accountRepo.On("FindById", accountSrc.ID).Return(accountSrc, nil)
-	// accountRepo.On("FindById", accountDst.ID).Return(nil, errors.NewAccountNotFound(accountDst.ID))
-	// accountTrxRepo := &accountTrxMock.MockAccountTransactionRepository{}
-	// service := &AccountTransactionServiceImpl{accountRepo, accountTrxRepo}
-	// transaction, err := service.Transfer(&model.AccountFundTransfer{
-	// 	AccountDstId: accountDst.ID,
-	// 	AccountSrcId: accountSrc.ID,
-	// 	Amount:       balance,
-	// })
-	// assertions := require.New(t)
-	// assertions.Nil(transaction)
-	// assertions.NotNilf(err, "Account dst not found")
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+
+	initialBalance := float64(1_000_000)
+	accountSrc := getAccountBalance(getAccountSrc(), initialBalance)
+	accountDst := getAccountDst()
+
+	accountService := mockService.NewMockAccountService(ctrl)
+	accountTrxRepo := mockRepo.NewMockAccountTransactionRepository(ctrl)
+	txManager := mockRepo.NewMockDBTransactionManager(ctrl)
+
+	txManager.EXPECT().Transaction(gomock.Any()).DoAndReturn(func(fc func(tx *gorm.DB) error) error {
+		return fc(nil)
+	})
+
+	accountService.EXPECT().FindAndLockAccountBalance(ctx, accountSrc.ID).Return(accountSrc, nil)
+	accountService.EXPECT().
+		FindAndLockAccountBalance(ctx, accountDst.ID).
+		Return(nil, pkgErrors.NewAccountNotFound(accountDst.ID))
+
+	accountTrxService := NewAccountTrxService(accountService, accountTrxRepo, txManager)
+
+	transaction, err := accountTrxService.Transfer(ctx, &model.AccountFundTransfer{
+		AccountDstId: accountDst.ID,
+		AccountSrcId: accountSrc.ID,
+		Amount:       100_000,
+	})
+
+	assertions := require.New(t)
+	assertions.Nil(transaction)
+	assertions.NotNil(err, "Account dst not found")
 }
 
 func getAccountSrc() *domain.Account {
@@ -243,6 +322,17 @@ func getAccountSrc() *domain.Account {
 		Address:   addr,
 		BirthDate: birthDate,
 		Gender:    true,
+	}
+}
+
+func getAccountSrcWithAllowNegativeBalance() *domain.AccountBalance {
+	account := getAccountSrc()
+	return &domain.AccountBalance{
+		ID:                   account.ID,
+		AccountID:            account.AccountID,
+		Balance:              100_000,
+		AllowNegativeBalance: true,
+		Account:              account,
 	}
 }
 
@@ -264,9 +354,10 @@ func getAccountDst() *domain.Account {
 
 func getAccountBalance(account *domain.Account, balance float64) *domain.AccountBalance {
 	return &domain.AccountBalance{
-		ID:        account.ID,
-		AccountID: account.AccountID,
-		Balance:   balance,
-		Account:   account,
+		ID:                   account.ID,
+		AccountID:            account.AccountID,
+		Balance:              balance,
+		AllowNegativeBalance: false,
+		Account:              account,
 	}
 }
