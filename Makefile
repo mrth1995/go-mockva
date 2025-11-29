@@ -1,4 +1,4 @@
-.PHONY: generate mocks test clean build help
+.PHONY: generate-mock test test-coverage clean install-tools help
 
 ## help: Display this help message
 help:
