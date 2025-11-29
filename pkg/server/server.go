@@ -18,7 +18,7 @@ const (
 )
 
 type Endpoint interface {
-	RegisterEndpoint(ws *restful.WebService, db *gorm.DB)
+	RegisterEndpoint(ws *restful.WebService)
 }
 
 type Server struct {
@@ -49,7 +49,7 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 func (s *Server) addRoute(ws *restful.WebService, endpoint Endpoint) {
-	endpoint.RegisterEndpoint(ws, s.dbConnection)
+	endpoint.RegisterEndpoint(ws)
 }
 
 func (s *Server) initializeDb() {

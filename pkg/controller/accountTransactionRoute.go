@@ -7,10 +7,9 @@ import (
 	"github.com/emicklei/go-restful/v3"
 	endpointError "github.com/mrth1995/go-mockva/pkg/errors"
 	"github.com/mrth1995/go-mockva/pkg/model"
-	"gorm.io/gorm"
 )
 
-func (accountTransactionHandler *AccountTransactionController) RegisterEndpoint(ws *restful.WebService, dbConnection *gorm.DB) {
+func (accountTransactionHandler *AccountTransactionController) RegisterEndpoint(ws *restful.WebService) {
 	tags := []string{"Account Transactions"}
 	ws.Route(
 		ws.POST("/accountTransactions/transfer").
