@@ -9,6 +9,7 @@ import (
 	"github.com/mrth1995/go-mockva/pkg/controller"
 	"github.com/mrth1995/go-mockva/pkg/repository/postgresql"
 	"github.com/mrth1995/go-mockva/pkg/service"
+	"github.com/mrth1995/go-mockva/pkg/version"
 )
 
 func (s *Server) initializeRoutes() {
@@ -24,9 +25,11 @@ func (s *Server) initializeRoutes() {
 
 	accountController := controller.NewAccountController(accountService)
 	accountTrxController := controller.NewAccountTransactionController(accountTrxService)
+	versionController := controller.NewVersionController()
 
 	s.addRoute(ws, accountController)
 	s.addRoute(ws, accountTrxController)
+	s.addRoute(ws, versionController)
 	restful.Add(ws)
 	s.addSwaggerDocs()
 }
@@ -41,7 +44,7 @@ func (s *Server) addSwaggerDocs() {
 				InfoProps: spec.InfoProps{
 					Title:       "mockva",
 					Description: "Mock Virtual Account",
-					Version:     "1.0.0",
+					Version:     version.Version,
 					Contact: &spec.ContactInfo{
 						ContactInfoProps: spec.ContactInfoProps{
 							Name:  "M Ridwan Taufik H",

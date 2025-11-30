@@ -1,0 +1,55 @@
+# Ignore Git and VCS metadata
+.git
+.gitignore
+
+# Build outputs and binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.out
+coverage.html
+
+# Vendor and dependency caches
+vendor/
+modules.txt
+pkg/mod/
+
+# IDEs, editors and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+*.log
+.DS_Store
+Thumbs.db
+
+# Local environment files
+.env
+.env.*
+
+# Node / frontend artifacts (if present)
+node_modules/
+dist/
+build/
+
+# Generated files and docs
+coverage/
+
+# Test files (not needed for building the runtime image)
+*_test.go
+
+# Temporary and cache files
+tmp/
+temp/
+*.tmp
+
+# Docker compose overrides and local dev only files
+docker-compose*.yaml
+
+# Keep go.mod and source files in the build context
+# (do not ignore `go.mod` and `go.sum` since they are needed for module download)
