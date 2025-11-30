@@ -12,12 +12,23 @@ import (
 	"gorm.io/gorm"
 )
 
+// AccountTransactionService handles business logic for account transactions.
+// It coordinates between account operations and transaction persistence,
+// ensuring atomic fund transfers between accounts.
 type AccountTransactionService struct {
 	accountService       AccountService
 	accountTrxRepository repository.AccountTransactionRepository
 	txManager            repository.DBTransactionManager
 }
 
+// NewAccountTrxService creates a new instance of AccountTransactionService.
+// Parameters:
+//   - accountService: Service for account operations and balance management
+//   - accountTrxRepo: Repository for persisting transaction records
+//   - txManager: Manager for coordinating database transactions
+//
+// Returns:
+//   - *AccountTransactionService: A new service instance
 func NewAccountTrxService(accountService AccountService, accountTrxRepo repository.AccountTransactionRepository, txManager repository.DBTransactionManager) *AccountTransactionService {
 	return &AccountTransactionService{
 		accountService:       accountService,
@@ -27,13 +38,22 @@ func NewAccountTrxService(accountService AccountService, accountTrxRepo reposito
 }
 
 // Transfer moves funds between two accounts atomically using a database transaction.
+// The operation performs the following validations:
+//   - Source and destination accounts must not be empty
+//   - Transfer amount must be positive
+//   - Source and destination accounts must be different
+//   - Source account must have sufficient balance (unless negative balance is allowed)
+//
+// The transfer is executed within a database transaction with pessimistic locking
+// to prevent concurrent modification issues.
+//
 // Parameters:
-//   - ctx: The request context
-//   - accountFundTransfer: The transfer details
+//   - ctx: The request context for cancellation and timeouts
+//   - accountFundTransfer: Transfer details including source account, destination account, and amount
 //
 // Returns:
-//   - *domain.AccountTransaction: The completed transaction
-//   - error: If the operation fails
+//   - *domain.AccountTransaction: The completed transaction record with updated balances
+//   - error: If validation fails, accounts not found, insufficient balance, or database operation fails
 func (s *AccountTransactionService) Transfer(ctx context.Context, accountFundTransfer *model.AccountFundTransfer) (*domain.AccountTransaction, error) {
 	if accountFundTransfer.AccountSrcId == "" {
 		return nil, errors.New("account src cannot be empty")

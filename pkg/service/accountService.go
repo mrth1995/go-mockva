@@ -16,27 +16,53 @@ import (
 
 // AccountService defines the interface for account-related business operations.
 type AccountService interface {
-	// FindByID retrieves an account by its ID.
+	// FindByID retrieves an account by its unique identifier.
+	// Parameters:
+	//   - ctx: The request context for cancellation and timeouts
+	//   - id: The unique account identifier
+	// Returns:
+	//   - *domain.Account: The account details if found
+	//   - error: If the account is not found or a database error occurs
 	FindByID(ctx context.Context, id string) (*domain.Account, error)
 
-	// Register creates a new account.
+	// Register creates a new account in the system.
+	// Parameters:
+	//   - ctx: The request context for cancellation and timeouts
+	//   - register: Account registration details including ID, name, address, birth date, and gender
+	// Returns:
+	//   - *domain.Account: The newly created account
+	//   - error: If account already exists, birth date format is invalid, or database operation fails
 	Register(ctx context.Context, register *model.AccountRegister) (*domain.Account, error)
 
 	// Edit updates an existing account's information.
+	// Parameters:
+	//   - ctx: The request context for cancellation and timeouts
+	//   - id: The unique account identifier
+	//   - edit: Account fields to update (name, address, gender, birth date) - nil values are ignored
+	// Returns:
+	//   - *domain.Account: The updated account
+	//   - error: If account is not found, birth date format is invalid, or database operation fails
 	Edit(ctx context.Context, id string, edit *model.AccountEdit) (*domain.Account, error)
 
 	// FindAndLockAccountBalance retrieves an account balance with a pessimistic lock.
+	// This method acquires a database row lock to prevent concurrent modifications during transactions.
+	// Parameters:
+	//   - ctx: The request context for cancellation and timeouts
+	//   - accountID: The unique account identifier
+	// Returns:
+	//   - *domain.AccountBalance: The account balance with an active lock
+	//   - error: If the account is not found or a database error occurs
 	FindAndLockAccountBalance(ctx context.Context, accountID string) (*domain.AccountBalance, error)
 
-	// UpdateBalance updates an account's balance.
 	// UpdateBalance updates the account balance within the provided transaction context.
+	// This method must be called within an active database transaction.
 	// Parameters:
-	//   - ctx: The request context
-	//   - accountBalance: The AccountBalance to update
+	//   - ctx: The request context for cancellation and timeouts
+	//   - accountBalance: The AccountBalance entity with the new balance value
 	//   - tx: The GORM transaction context
 	// Returns:
 	//   - *domain.AccountBalance: The updated balance
-	//   - error: If the operation fails
+	//   - error: If the account is not found or a database error occurs
 	UpdateBalance(ctx context.Context, accountBalance *domain.AccountBalance, tx *gorm.DB) (*domain.AccountBalance, error)
 }
 
@@ -52,10 +78,26 @@ func NewAccountService(accountRepo repository.AccountRepository) AccountService 
 	}
 }
 
+// FindByID retrieves an account by its unique identifier.
+// Parameters:
+//   - ctx: The request context for cancellation and timeouts
+//   - id: The unique account identifier
+//
+// Returns:
+//   - *domain.Account: The account details if found
+//   - error: If the account is not found or a database error occurs
 func (s *AccountServiceImpl) FindByID(ctx context.Context, id string) (*domain.Account, error) {
 	return s.accountRepository.FindByID(ctx, id)
 }
 
+// Register creates a new account in the system.
+// Parameters:
+//   - ctx: The request context for cancellation and timeouts
+//   - register: Account registration details including ID, name, address, birth date, and gender
+//
+// Returns:
+//   - *domain.Account: The newly created account
+//   - error: If account already exists, birth date format is invalid, or database operation fails
 func (s *AccountServiceImpl) Register(ctx context.Context, register *model.AccountRegister) (*domain.Account, error) {
 	existingAccount, notFound := s.accountRepository.FindByID(ctx, register.ID)
 	if existingAccount != nil && notFound == nil {
@@ -82,6 +124,15 @@ func (s *AccountServiceImpl) Register(ctx context.Context, register *model.Accou
 	return newAccount, nil
 }
 
+// Edit updates an existing account's information.
+// Parameters:
+//   - ctx: The request context for cancellation and timeouts
+//   - id: The unique account identifier
+//   - edit: Account fields to update (name, address, gender, birth date) - nil values are ignored
+//
+// Returns:
+//   - *domain.Account: The updated account
+//   - error: If account is not found, birth date format is invalid, or database operation fails
 func (s *AccountServiceImpl) Edit(ctx context.Context, id string, edit *model.AccountEdit) (*domain.Account, error) {
 	existingAccount, err := s.accountRepository.FindByID(ctx, id)
 	if err != nil {
@@ -111,6 +162,15 @@ func (s *AccountServiceImpl) Edit(ctx context.Context, id string, edit *model.Ac
 	return existingAccount, nil
 }
 
+// FindAndLockAccountBalance retrieves an account balance with a pessimistic lock.
+// This method acquires a database row lock to prevent concurrent modifications during transactions.
+// Parameters:
+//   - ctx: The request context for cancellation and timeouts
+//   - accountID: The unique account identifier
+//
+// Returns:
+//   - *domain.AccountBalance: The account balance with an active lock
+//   - error: If the account is not found or a database error occurs
 func (s *AccountServiceImpl) FindAndLockAccountBalance(ctx context.Context, accountID string) (*domain.AccountBalance, error) {
 	return s.accountRepository.FindAndLockAccountBalance(ctx, accountID)
 }
