@@ -8,6 +8,8 @@ services:
     environment:
       - POSTGRES_USER=mockvaadmin
       - POSTGRES_PASSWORD=Password1
+    volumes:
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     command: ["postgres", "-c", "log_statement=all"]
 
   pgadmin:
