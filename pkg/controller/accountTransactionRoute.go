@@ -9,11 +9,11 @@ import (
 	"github.com/mrth1995/go-mockva/pkg/model"
 )
 
-func (accountTransactionHandler *AccountTransactionController) RegisterEndpoint(ws *restful.WebService) {
+func (accountTransactionController *AccountTransactionController) RegisterEndpoint(ws *restful.WebService) {
 	tags := []string{"Account Transactions"}
 	ws.Route(
 		ws.POST("/accountTransactions/transfer").
-			To(accountTransactionHandler.Transfer).
+			To(accountTransactionController.Transfer).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
 			Reads(model.AccountFundTransfer{}).

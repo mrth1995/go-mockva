@@ -18,20 +18,20 @@ func NewAccountController(accountService service.AccountService) *AccountControl
 	}
 }
 
-func (h *AccountController) FindByUserID(request *restful.Request, response *restful.Response) {
+func (accountController *AccountController) FindByUserID(request *restful.Request, response *restful.Response) {
 	ctx := request.Request.Context()
 
-	accountId := request.PathParameter("accountId")
-	existingAccount, err := h.AccountService.FindByID(ctx, accountId)
+	accountID := request.PathParameter("accountId")
+	existingAccount, err := accountController.AccountService.FindByID(ctx, accountID)
 	if existingAccount == nil && err != nil {
-		logrus.Infof("Account %v not found", accountId)
+		logrus.Infof("Account %v not found", accountID)
 		responseWriter.WriteBadRequest(err, response)
 		return
 	}
 	responseWriter.WriteOK(existingAccount, response)
 }
 
-func (h *AccountController) CreateAccount(request *restful.Request, response *restful.Response) {
+func (accountController *AccountController) CreateAccount(request *restful.Request, response *restful.Response) {
 	ctx := request.Request.Context()
 
 	var accountRegister model.AccountRegister
@@ -41,7 +41,7 @@ func (h *AccountController) CreateAccount(request *restful.Request, response *re
 		responseWriter.WriteBadRequest(err, response)
 		return
 	}
-	newAccount, err := h.AccountService.Register(ctx, &accountRegister)
+	newAccount, err := accountController.AccountService.Register(ctx, &accountRegister)
 	if err != nil {
 		logrus.Error(err)
 		responseWriter.WriteBadRequest(err, response)
@@ -50,7 +50,7 @@ func (h *AccountController) CreateAccount(request *restful.Request, response *re
 	responseWriter.WriteOK(newAccount, response)
 }
 
-func (h *AccountController) EditAccount(request *restful.Request, response *restful.Response) {
+func (accountController *AccountController) EditAccount(request *restful.Request, response *restful.Response) {
 	ctx := request.Request.Context()
 
 	accountID := request.PathParameter("accountId")
@@ -62,7 +62,7 @@ func (h *AccountController) EditAccount(request *restful.Request, response *rest
 		responseWriter.WriteBadRequest(err, response)
 		return
 	}
-	account, err := h.AccountService.Edit(ctx, accountID, &accountEdit)
+	account, err := accountController.AccountService.Edit(ctx, accountID, &accountEdit)
 	if err != nil {
 		logrus.Error(err)
 		responseWriter.WriteBadRequest(err, response)

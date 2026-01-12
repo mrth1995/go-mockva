@@ -9,11 +9,11 @@ import (
 	"github.com/mrth1995/go-mockva/pkg/model"
 )
 
-func (accountHandler *AccountController) RegisterEndpoint(ws *restful.WebService) {
+func (accountController *AccountController) RegisterEndpoint(ws *restful.WebService) {
 	tags := []string{"Accounts"}
 	ws.Route(
 		ws.GET("/accounts/{accountId}").
-			To(accountHandler.FindByUserID).
+			To(accountController.FindByUserID).
 			Produces(restful.MIME_JSON).
 			Param(restful.PathParameter("accountId", "Account ID")).
 			Returns(http.StatusOK, "Account exist", model.AccountInfo{}).
@@ -24,7 +24,7 @@ func (accountHandler *AccountController) RegisterEndpoint(ws *restful.WebService
 	)
 	ws.Route(
 		ws.POST("/accounts").
-			To(accountHandler.CreateAccount).
+			To(accountController.CreateAccount).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
 			Reads(model.AccountRegister{}).
@@ -36,7 +36,7 @@ func (accountHandler *AccountController) RegisterEndpoint(ws *restful.WebService
 
 	ws.Route(
 		ws.PATCH("/accounts/{accountId}").
-			To(accountHandler.EditAccount).
+			To(accountController.EditAccount).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
 			Reads(model.AccountEdit{}).

@@ -1,3 +1,4 @@
+// Package controller is package for http controller
 package controller
 
 import (
@@ -16,7 +17,8 @@ func NewAccountTransactionController(accountTransactionService *service.AccountT
 	return &AccountTransactionController{AccountTransactionService: accountTransactionService}
 }
 
-func (h *AccountTransactionController) Transfer(request *restful.Request, response *restful.Response) {
+// Transfer move account balance from one account to another account
+func (accountTransactionController *AccountTransactionController) Transfer(request *restful.Request, response *restful.Response) {
 	ctx := request.Request.Context()
 
 	var param model.AccountFundTransfer
@@ -26,7 +28,7 @@ func (h *AccountTransactionController) Transfer(request *restful.Request, respon
 		responseWriter.WriteBadRequest(err, response)
 		return
 	}
-	trx, err := h.AccountTransactionService.Transfer(ctx, &param)
+	trx, err := accountTransactionController.AccountTransactionService.Transfer(ctx, &param)
 	if err != nil {
 		logrus.Error(err)
 		responseWriter.WriteBadRequest(err, response)
