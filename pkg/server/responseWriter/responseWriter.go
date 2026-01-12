@@ -9,7 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func WriteOK(content interface{}, response *restful.Response) {
+func WriteOK(content any, response *restful.Response) {
 	err := response.WriteAsJson(content)
 	if err != nil {
 		logrus.Error(err)
@@ -37,7 +37,7 @@ func WriteInternalServerError(e error, response *restful.Response) {
 	writeError(http.StatusInternalServerError, e, response)
 }
 
-//TODO: wrap error into model
+// TODO: wrap error into model
 func writeError(httpStatus int, e error, response *restful.Response) {
 	var resp *endpointError.EndpointError
 	if endpointErr, ok := e.(*endpointError.EndpointError); ok {
