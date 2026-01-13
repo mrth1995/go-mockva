@@ -38,8 +38,8 @@ func TestAccountTransactionService_Transfer_ValidationErrors(t *testing.T) {
 		{
 			name: "Empty source account",
 			transfer: &model.AccountFundTransfer{
-				AccountSrcId: "",
-				AccountDstId: "002",
+				AccountSrcID: "",
+				AccountDstID: "002",
 				Amount:       100000,
 			},
 			expectedErr: "account src cannot be empty",
@@ -47,8 +47,8 @@ func TestAccountTransactionService_Transfer_ValidationErrors(t *testing.T) {
 		{
 			name: "Empty destination account",
 			transfer: &model.AccountFundTransfer{
-				AccountSrcId: "001",
-				AccountDstId: "",
+				AccountSrcID: "001",
+				AccountDstID: "",
 				Amount:       100000,
 			},
 			expectedErr: "account dst cannot be empty",
@@ -56,8 +56,8 @@ func TestAccountTransactionService_Transfer_ValidationErrors(t *testing.T) {
 		{
 			name: "Invalid amount (zero)",
 			transfer: &model.AccountFundTransfer{
-				AccountSrcId: "001",
-				AccountDstId: "002",
+				AccountSrcID: "001",
+				AccountDstID: "002",
 				Amount:       0,
 			},
 			expectedErr: "invalid amount",
@@ -65,8 +65,8 @@ func TestAccountTransactionService_Transfer_ValidationErrors(t *testing.T) {
 		{
 			name: "Invalid amount (negative)",
 			transfer: &model.AccountFundTransfer{
-				AccountSrcId: "001",
-				AccountDstId: "002",
+				AccountSrcID: "001",
+				AccountDstID: "002",
 				Amount:       -100,
 			},
 			expectedErr: "invalid amount",
@@ -74,8 +74,8 @@ func TestAccountTransactionService_Transfer_ValidationErrors(t *testing.T) {
 		{
 			name: "Same source and destination",
 			transfer: &model.AccountFundTransfer{
-				AccountSrcId: "001",
-				AccountDstId: "001",
+				AccountSrcID: "001",
+				AccountDstID: "001",
 				Amount:       100000,
 			},
 			expectedErr: "cannot transfer with same account",
@@ -145,8 +145,8 @@ func TestAccountTransactionService_Transfer(t *testing.T) {
 	accountTrxService := NewAccountTrxService(accountService, accountTrxRepo, txManager)
 
 	accountFundTransfer := &model.AccountFundTransfer{
-		AccountDstId: accountDst.ID,
-		AccountSrcId: accountSrc.ID,
+		AccountDstID: accountDst.ID,
+		AccountSrcID: accountSrc.ID,
 		Amount:       100_000,
 	}
 
@@ -190,8 +190,8 @@ func TestAccountTransactionService_TransferNegativeBalance(t *testing.T) {
 	accountTrxService := NewAccountTrxService(accountService, accountTrxRepo, txManager)
 
 	accountFundTransfer := &model.AccountFundTransfer{
-		AccountDstId: accountDst.ID,
-		AccountSrcId: accountSrc.ID,
+		AccountDstID: accountDst.ID,
+		AccountSrcID: accountSrc.ID,
 		Amount:       150_000, // More than balance, but negative allowed
 	}
 
@@ -228,8 +228,8 @@ func TestAccountTransactionServiceImpl_Transfer_InsufficientFunds(t *testing.T) 
 	accountTrxService := NewAccountTrxService(accountService, accountTrxRepo, txManager)
 
 	transaction, err := accountTrxService.Transfer(ctx, &model.AccountFundTransfer{
-		AccountDstId: accountDst.ID,
-		AccountSrcId: accountSrc.ID,
+		AccountDstID: accountDst.ID,
+		AccountSrcID: accountSrc.ID,
 		Amount:       1_000_000, // More than available balance
 	})
 
@@ -263,8 +263,8 @@ func TestAccountTransactionServiceImpl_Transfer_AccountSrcNotFound(t *testing.T)
 	accountTrxService := NewAccountTrxService(accountService, accountTrxRepo, txManager)
 
 	transaction, err := accountTrxService.Transfer(ctx, &model.AccountFundTransfer{
-		AccountDstId: accountDst.ID,
-		AccountSrcId: accountSrc.ID,
+		AccountDstID: accountDst.ID,
+		AccountSrcID: accountSrc.ID,
 		Amount:       100_000,
 	})
 
@@ -299,8 +299,8 @@ func TestAccountTransactionServiceImpl_Transfer_AccountDstNotFound(t *testing.T)
 	accountTrxService := NewAccountTrxService(accountService, accountTrxRepo, txManager)
 
 	transaction, err := accountTrxService.Transfer(ctx, &model.AccountFundTransfer{
-		AccountDstId: accountDst.ID,
-		AccountSrcId: accountSrc.ID,
+		AccountDstID: accountDst.ID,
+		AccountSrcID: accountSrc.ID,
 		Amount:       100_000,
 	})
 
