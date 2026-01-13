@@ -21,7 +21,7 @@ func (v *VersionController) GetVersion(request *restful.Request, response *restf
 	versionResp := VersionResponse{
 		Version: version.Version,
 	}
-	response.WriteHeaderAndEntity(http.StatusOK, versionResp)
+	_ = response.WriteHeaderAndEntity(http.StatusOK, versionResp)
 }
 
 func (v *VersionController) RegisterEndpoint(ws *restful.WebService) {
