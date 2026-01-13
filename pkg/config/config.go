@@ -1,3 +1,4 @@
+// Package config is a package that stores environment variables
 package config
 
 import (
@@ -21,7 +22,7 @@ type Config struct {
 }
 
 func (envVar Config) HelpDocs() []string {
-	reflectEnvVar := reflect.TypeOf(envVar)
+	reflectEnvVar := reflect.TypeFor[Config]()
 	doc := make([]string, 1+reflectEnvVar.NumField())
 	doc[0] = "Environment variables config:"
 	for i := 0; i < reflectEnvVar.NumField(); i++ {

@@ -55,35 +55,35 @@ func NewAccountTrxService(accountService AccountService, accountTrxRepo reposito
 //   - *domain.AccountTransaction: The completed transaction record with updated balances
 //   - error: If validation fails, accounts not found, insufficient balance, or database operation fails
 func (s *AccountTransactionService) Transfer(ctx context.Context, accountFundTransfer *model.AccountFundTransfer) (*domain.AccountTransaction, error) {
-	if accountFundTransfer.AccountSrcId == "" {
+	if accountFundTransfer.AccountSrcID == "" {
 		return nil, errors.New("account src cannot be empty")
 	}
-	if accountFundTransfer.AccountDstId == "" {
+	if accountFundTransfer.AccountDstID == "" {
 		return nil, errors.New("account dst cannot be empty")
 	}
 	if accountFundTransfer.Amount <= 0 {
 		return nil, errors.New("invalid amount")
 	}
-	if accountFundTransfer.AccountDstId == accountFundTransfer.AccountSrcId {
+	if accountFundTransfer.AccountDstID == accountFundTransfer.AccountSrcID {
 		return nil, errors.New("cannot transfer with same account")
 	}
 
 	var accountTrx *domain.AccountTransaction
 	err := s.txManager.Transaction(func(tx *gorm.DB) error {
-		accountSrc, err := s.accountService.FindAndLockAccountBalance(ctx, accountFundTransfer.AccountSrcId)
+		accountSrc, err := s.accountService.FindAndLockAccountBalance(ctx, accountFundTransfer.AccountSrcID)
 		if err != nil {
 			return err
 		}
-		accountDst, err := s.accountService.FindAndLockAccountBalance(ctx, accountFundTransfer.AccountDstId)
+		accountDst, err := s.accountService.FindAndLockAccountBalance(ctx, accountFundTransfer.AccountDstID)
 		if err != nil {
 			return err
 		}
 		if accountSrc.Balance-accountFundTransfer.Amount < 0 && !accountSrc.AllowNegativeBalance {
 			return errors.New("insufficient amount")
 		}
-		trxId := accountSrc.ID + ":" + accountDst.ID + ":" + strconv.Itoa(time.Now().Nanosecond())
+		trxID := accountSrc.ID + ":" + accountDst.ID + ":" + strconv.Itoa(time.Now().Nanosecond())
 		accountTrx = &domain.AccountTransaction{
-			ID:                   trxId,
+			ID:                   trxID,
 			TransactionTimestamp: time.Now(),
 			Amount:               accountFundTransfer.Amount,
 			AccountSrc:           accountSrc,

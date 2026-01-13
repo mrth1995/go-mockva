@@ -9,16 +9,16 @@ func (e *EndpointError) Error() string {
 	return e.ErrorMessage
 }
 
-func NewAccountAlreadyExist(accountId string) error {
+func NewAccountAlreadyExist(accountID string) error {
 	return &EndpointError{
-		ErrorMessage: "Account with ID" + accountId + " already exist",
+		ErrorMessage: "Account with ID" + accountID + " already exist",
 		ErrorCode:    "68",
 	}
 }
 
-func NewAccountNotFound(accountId string) error {
+func NewAccountNotFound(accountID string) error {
 	return &EndpointError{
-		ErrorMessage: "Account with ID" + accountId + " not found",
+		ErrorMessage: "Account with ID" + accountID + " not found",
 		ErrorCode:    "76",
 	}
 }
